@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Escalation Email Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+</head>
+<body>
+  <h1>📧 Escalation Email Dashboard</h1>
+
+  <div id="counters">
+    <div class="card" id="openCard">Open Emails<br><span id="openCount">0</span></div>
+    <div class="card" id="progressCard">In-Progress Emails<br><span id="progressCount">0</span></div>
+  </div>
+
+  <div id="tableSection" class="hidden">
+    <button id="backBtn">← Back</button>
+    <table id="emailTable">
+      <thead>
+        <tr>
+          <th>Date</th><th>From</th><th>Subject</th><th>Thread ID</th><th>Action</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

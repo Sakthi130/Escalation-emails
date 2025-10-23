@@ -1,0 +1,59 @@
+body {
+  font-family: "Manrope", sans-serif;
+  background: #f8fafc;
+  text-align: center;
+  padding: 2rem;
+}
+h1 {
+  color: #09b367;
+  margin-bottom: 2rem;
+}
+#counters {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+.card {
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  padding: 1.5rem 2rem;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.card:hover { transform: translateY(-3px); }
+.card span {
+  display: block;
+  font-size: 3rem;
+  font-weight: bold;
+  color: #09b367;
+}
+.hidden { display: none; }
+#emailTable {
+  margin: 1rem auto;
+  border-collapse: collapse;
+  width: 90%;
+  background: white;
+}
+#emailTable th, #emailTable td {
+  border: 1px solid #e2e8f0;
+  padding: 0.5rem 0.8rem;
+}
+#emailTable th {
+  background: #f1f5f9;
+}
+button {
+  background: #09b367;
+  border: none;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+button#backBtn {
+  background: #ccc;
+  color: black;
+  margin-bottom: 1rem;
+}

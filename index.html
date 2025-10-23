@@ -2,31 +2,131 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Escalation Email Dashboard</title>
-  <link rel="stylesheet" href="style.css" />
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    body {
+      font-family: "Manrope", sans-serif;
+      background: #f4f6f8;
+      padding: 40px;
+      text-align: center;
+    }
+    h1 {
+      color: #09b367;
+    }
+    .counter-box {
+      display: inline-block;
+      background: white;
+      border-radius: 12px;
+      padding: 25px 40px;
+      margin: 15px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    .counter-box:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    }
+    .count {
+      font-size: 48px;
+      font-weight: bold;
+      color: #333;
+    }
+    #details {
+      margin-top: 40px;
+      text-align: left;
+      display: inline-block;
+      width: 80%;
+      background: #fff;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid #ddd;
+      text-align: left;
+    }
+    th {
+      background: #09b367;
+      color: white;
+    }
+  </style>
 </head>
 <body>
-  <h1>📧 Escalation Email Dashboard</h1>
-
-  <div id="counters">
-    <div class="card" id="openCard">Open Emails<br><span id="openCount">0</span></div>
-    <div class="card" id="progressCard">In-Progress Emails<br><span id="progressCount">0</span></div>
+  <h1>Escalation Email Dashboard</h1>
+  <div id="stats">
+    <div class="counter-box" id="openBox">
+      <div class="count" id="openCount">0</div>
+      <div>Open Emails</div>
+    </div>
+    <div class="counter-box" id="progressBox">
+      <div class="count" id="progressCount">0</div>
+      <div>In-Progress Emails</div>
+    </div>
   </div>
 
-  <div id="tableSection" class="hidden">
-    <button id="backBtn">← Back</button>
-    <table id="emailTable">
-      <thead>
-        <tr>
-          <th>Date</th><th>From</th><th>Subject</th><th>Thread ID</th><th>Action</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
+  <div id="details"></div>
 
-  <script src="script.js"></script>
+  <script>
+    const CSV_INTERNAL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPVg1SHavBi-x057E5EurZKxohmfAtQx7EXvcK509VHQF6zzjDr3JjbJLH7lH2Sugo9jd61F0PI2jl/pub?gid=1394291922&single=true&output=csv";
+    const CSV_FORM = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPVg1SHavBi-x057E5EurZKxohmfAtQx7EXvcK509VHQF6zzjDr3JjbJLH7lH2Sugo9jd61F0PI2jl/pub?gid=88127589&single=true&output=csv"; // Replace gid with Form Responses 1 gid
+    const CSV_CLOSE = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPVg1SHavBi-x057E5EurZKxohmfAtQx7EXvcK509VHQF6zzjDr3JjbJLH7lH2Sugo9jd61F0PI2jl/pub?gid=1713040682&single=true&output=csv"; // Replace gid with Form Responses 2 gid
+
+    // Helper to parse CSV
+    async function fetchCSV(url) {
+      const res = await fetch(url);
+      const text = await res.text();
+      const [headerLine, ...lines] = text.trim().split("\n");
+      const headers = headerLine.split(",");
+      return lines.map(l => {
+        const values = l.split(",");
+        const obj = {};
+        headers.forEach((h, i) => obj[h.trim()] = values[i]?.trim());
+        return obj;
+      });
+    }
+
+    async function loadDashboard() {
+      const internal = await fetchCSV(CSV_INTERNAL);
+      const form = await fetchCSV(CSV_FORM);
+      const closed = await fetchCSV(CSV_CLOSE);
+
+      const formMsgIds = new Set(form.map(r => r.msgId));
+      const closedMsgIds = new Set(closed.map(r => r.msgId));
+
+      const openEmails = internal.filter(r => !formMsgIds.has(r.msgId));
+      const progressEmails = internal.filter(r => formMsgIds.has(r.msgId) && !closedMsgIds.has(r.msgId));
+
+      document.getElementById("openCount").innerText = openEmails.length;
+      document.getElementById("progressCount").innerText = progressEmails.length;
+
+      document.getElementById("openBox").onclick = () => showDetails(openEmails, "Open Emails");
+      document.getElementById("progressBox").onclick = () => showDetails(progressEmails, "In-Progress Emails");
+    }
+
+    function showDetails(data, title) {
+      const container = document.getElementById("details");
+      container.innerHTML = `<h2>${title}</h2>`;
+      if (!data.length) {
+        container.innerHTML += "<p>No emails found.</p>";
+        return;
+      }
+      let table = "<table><tr><th>Msg ID</th><th>Subject</th><th>From</th><th>Date</th></tr>";
+      data.forEach(r => {
+        table += `<tr><td>${r.msgId}</td><td>${r.subject}</td><td>${r.from}</td><td>${r.date}</td></tr>`;
+      });
+      table += "</table>";
+      container.innerHTML += table;
+    }
+
+    // Auto-refresh every hour (3600000 ms)
+    loadDashboard();
+    setInterval(loadDashboard, 3600000);
+  </script>
 </body>
 </html>

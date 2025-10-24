@@ -611,6 +611,7 @@
     let globalOpenEmails = [];
     let globalProgressEmails = [];
     let globalClosedEmails = [];
+    let globalFormData = [];
     let filteredClosedEmails = [];
     let currentPage = { open: 1, progress: 1, closed: 1 };
     let pageSize = { open: 20, progress: 20, closed: 20 };
@@ -647,6 +648,22 @@
       return diffDays;
     }
 
+    function extractNameFromEmail(email) {
+      if (!email || typeof email !== 'string') return '';
+  
+    // Extract the part before @
+      const username = email.split('@')[0];
+  
+    // Replace dots and underscores with spaces
+      const name = username.replace(/[._]/g, ' ');
+  
+    // Capitalize first letter of each word
+      return name.split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+    }
+
+
     async function loadDashboard() {
       try {
         document.getElementById('loading').style.display = 'block';
@@ -657,6 +674,7 @@
           fetchCSV(CSV_FORM),
           fetchCSV(CSV_CLOSE)
         ]);
+        globalFormData = form;
 
         const formMsgIds = new Set(form.map(r => r.msgId?.trim()).filter(Boolean));
         const closedMsgIds = new Set(closed.map(r => r.msgId?.trim()).filter(Boolean));
@@ -919,54 +937,87 @@ function renderEnhancedClosedTable() {
       document.querySelector(`#${type}DetailsPage`).scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
+    function enrichProgressData() {
+      return globalProgressEmails.map(email => {
+      const msgId = email.msgId?.trim();
+    
+    // Find matching form entry
+      const formEntry = globalFormData.find(f => f.msgId?.trim() === msgId);
+    
+    // Extract owner name from email address in form data
+    // Assuming the email field in CSV_FORM is named 'Email Address' or similar
+      const ownerEmail = formEntry?.['Email Address'] || formEntry?.['email'] || formEntry?.['Email'] || '';
+      const ownerName = extractNameFromEmail(ownerEmail);
+    
+    // Return enriched data with specific fields
+      return {
+        msgId: email.msgId || '',
+        threadId: email.threadId || '',
+        Owner: ownerName || ownerEmail, // Show name, fallback to email
+        date: email.date || '',
+        subject: email.subject || '',
+        body: email.body || ''
+      };
+    });
+  }
+
     function renderTable(type) {
-      const tableId = type + 'Table';
-      const paginationId = type + 'Pagination';
-      let data;
-      
-      if (type === 'open') data = globalOpenEmails;
-      else if (type === 'progress') data = globalProgressEmails;
-      else if (type === 'closed') data = filteredClosedEmails;
-      
-      const table = document.getElementById(tableId);
-      const paginationContainer = document.getElementById(paginationId);
-      
-      if (!data.length) {
-        table.innerHTML = '<tbody><tr><td colspan="100" class="no-data">No emails found</td></tr></tbody>';
-        paginationContainer.innerHTML = '';
-        return;
-      }
+  const tableId = type + 'Table';
+  const paginationId = type + 'Pagination';
+  let data;
+  let displayColumns = [];
+  
+  if (type === 'open') {
+    data = globalOpenEmails;
+    // Show only specific columns for Open emails
+    displayColumns = ['msgId', 'threadId', 'subject', 'date', 'body', 'AI - sentiment'];
+  } else if (type === 'progress') {
+    // For progress, we need to enrich data with owner info from CSV_FORM
+    data = enrichProgressData();
+    displayColumns = ['msgId', 'threadId', 'Owner', 'date', 'subject', 'body'];
+  } else if (type === 'closed') {
+    data = filteredClosedEmails;
+  }
+  
+  const table = document.getElementById(tableId);
+  const paginationContainer = document.getElementById(paginationId);
+  
+  if (!data.length) {
+    table.innerHTML = '<tbody><tr><td colspan="100" class="no-data">No emails found</td></tr></tbody>';
+    paginationContainer.innerHTML = '';
+    return;
+  }
 
-      const totalPages = Math.ceil(data.length / pageSize[type]);
-      const startIdx = (currentPage[type] - 1) * pageSize[type];
-      const endIdx = startIdx + pageSize[type];
-      const pageData = data.slice(startIdx, endIdx);
+  const totalPages = Math.ceil(data.length / pageSize[type]);
+  const startIdx = (currentPage[type] - 1) * pageSize[type];
+  const endIdx = startIdx + pageSize[type];
+  const pageData = data.slice(startIdx, endIdx);
 
-      // Get headers from first row
-      const headers = Object.keys(data[0]);
-      
-      // Render table
-      let html = '<thead><tr>';
-      headers.forEach(header => {
-        html += `<th>${header}</th>`;
-      });
-      html += '</tr></thead><tbody>';
+  // Determine headers
+  const headers = displayColumns.length > 0 ? displayColumns : Object.keys(data[0]);
+  
+  // Render table
+  let html = '<thead><tr>';
+  headers.forEach(header => {
+    html += `<th>${header}</th>`;
+  });
+  html += '</tr></thead><tbody>';
 
-      pageData.forEach(row => {
-        html += '<tr>';
-        headers.forEach(header => {
-          const value = row[header] || '';
-          html += `<td title="${value}">${value}</td>`;
-        });
-        html += '</tr>';
-      });
+  pageData.forEach(row => {
+    html += '<tr>';
+    headers.forEach(header => {
+      const value = row[header] || '';
+      html += `<td title="${value}">${value}</td>`;
+    });
+    html += '</tr>';
+  });
 
-      html += '</tbody>';
-      table.innerHTML = html;
+  html += '</tbody>';
+  table.innerHTML = html;
 
-      // Render pagination
-      renderPagination(type, currentPage[type], totalPages, data.length);
-    }
+  // Render pagination
+  renderPagination(type, currentPage[type], totalPages, data.length);
+}
 
     function renderPagination(type, current, total, totalItems) {
       const container = document.getElementById(type + 'Pagination');
@@ -1034,5 +1085,6 @@ function renderEnhancedClosedTable() {
   </script>
 </body>
 </html>
+
 
 

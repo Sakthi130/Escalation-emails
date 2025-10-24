@@ -534,7 +534,7 @@
       <div class="details-header">
         <div class="details-header-text">
           <h2>In-Progress Threads</h2>
-          <p>Threads currently being worked on</p>
+          <p>Threads currently being worked on (Negative sentiment only)</p>
         </div>
         <div class="page-size-selector">
           <label>Show:</label>
@@ -670,6 +670,12 @@
         
         globalFormData = form;
 
+        // Filter form entries to only include NEGATIVE sentiment
+        const negativeSentimentForm = form.filter(f => {
+          const sentiment = f.sentiment || f.Sentiment || f['Sentiment'] || '';
+          return sentiment.toLowerCase().trim() === 'negative';
+        });
+
         // Build thread closure map with timestamps
         const threadClosureMap = new Map();
         closed.forEach(c => {
@@ -686,9 +692,9 @@
           }
         });
 
-        // Build thread-level form tracking
+        // Build thread-level form tracking (ONLY NEGATIVE SENTIMENT)
         const threadInProgressSet = new Set();
-        form.forEach(f => {
+        negativeSentimentForm.forEach(f => {
           const threadId = f.threadId?.trim();
           if (threadId) {
             threadInProgressSet.add(threadId);
@@ -722,6 +728,7 @@
             closedEmailsMap.get(threadId).push(email);
           } else if (isThreadInProgress || (threadClosureTime && emailDate && emailDate >= threadClosureTime)) {
             // Thread is in progress OR email came after thread closure (reopen case)
+            // ONLY if sentiment is NEGATIVE
             globalProgressEmails.push(email);
           } else {
             // Thread has never been picked up
@@ -748,7 +755,6 @@
             month: closureEntry?.Timestamp ? 
               new Date(closureEntry.Timestamp).toLocaleString('default', { month: 'long', year: 'numeric' }) : 'N/A',
             closedBy: closureEntry?.['Action Owner & Timeline'] || closureEntry?.['Closed By'] || 'Unknown',
-            escalationType: closureEntry?.['Escalation Type'] || firstEmail?.['Escalation Type'] || 'Unknown',
             from: firstEmail?.from || ''
           };
         });
@@ -816,12 +822,6 @@
       const thisMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
       const thisMonthCount = filteredClosedEmails.filter(e => e.month === thisMonth).length;
       
-      const typeBreakdown = {};
-      filteredClosedEmails.forEach(e => {
-        const type = e.escalationType || 'Unknown';
-        typeBreakdown[type] = (typeBreakdown[type] || 0) + 1;
-      });
-      
       const agentPerformance = {};
       filteredClosedEmails.forEach(e => {
         const agent = e.closedBy || 'Unknown';
@@ -832,11 +832,18 @@
       
       const fastestResolution = validAgeings.length > 0 ? Math.min(...validAgeings) : 0;
       
+      const totalMessages = filteredClosedEmails.reduce((sum, thread) => sum + thread.messageCount, 0);
+      
       const statsHtml = `
         <div class="stat-card">
           <h3>Total Closed</h3>
           <div class="value">${totalClosed}</div>
-          <div class="subtext">All filtered threads</div>
+          <div class="subtext">Threads resolved</div>
+        </div>
+        <div class="stat-card">
+          <h3>Total Messages</h3>
+          <div class="value">${totalMessages}</div>
+          <div class="subtext">Across all threads</div>
         </div>
         <div class="stat-card">
           <h3>This Month</h3>
@@ -858,11 +865,6 @@
           <div class="value">${topAgent ? topAgent[1] : 0}</div>
           <div class="subtext">${topAgent ? topAgent[0] : 'N/A'}</div>
         </div>
-        <div class="stat-card">
-          <h3>Escalation Types</h3>
-          <div class="value">${Object.keys(typeBreakdown).length}</div>
-          <div class="subtext">unique categories</div>
-        </div>
       `;
       document.getElementById('closedStats').innerHTML = statsHtml;
       
@@ -883,11 +885,11 @@
       const endIdx = startIdx + pageSize.closed;
       const pageData = data.slice(startIdx, endIdx);
       
+      // REMOVED 'escalationType' from columns
       const priorityColumns = [
         'threadId',
         'subject',
         'messageCount',
-        'escalationType',
         'startDate',
         'closureDate',
         'ageing',
@@ -900,7 +902,6 @@
       priorityColumns.forEach(col => {
         const displayName = col === 'threadId' ? 'Thread ID'
           : col === 'messageCount' ? 'Messages'
-          : col === 'escalationType' ? 'Type'
           : col === 'startDate' ? 'Start Date'
           : col === 'closureDate' ? 'Closed Date'
           : col === 'ageing' ? 'Days'

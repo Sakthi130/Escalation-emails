@@ -738,40 +738,143 @@
       renderClosedAnalytics();
     }
 
-    function renderClosedAnalytics() {
-      // Calculate statistics
-      const totalClosed = filteredClosedEmails.length;
-      const avgAgeing = filteredClosedEmails.reduce((sum, e) => {
-        const age = typeof e.ageing === 'number' ? e.ageing : 0;
-        return sum + age;
-      }, 0) / (totalClosed || 1);
+    // Enhanced closed email rendering with analytics
+function renderClosedAnalytics() {
+  // Calculate enhanced statistics
+  const totalClosed = filteredClosedEmails.length;
+  
+  // Average ageing calculation
+  const validAgeings = filteredClosedEmails
+    .map(e => typeof e.ageing === 'number' ? e.ageing : null)
+    .filter(a => a !== null);
+  const avgAgeing = validAgeings.length > 0 
+    ? validAgeings.reduce((sum, age) => sum + age, 0) / validAgeings.length 
+    : 0;
+  
+  // Month analysis
+  const thisMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+  const thisMonthCount = filteredClosedEmails.filter(e => e.month === thisMonth).length;
+  
+  // Escalation type breakdown
+  const typeBreakdown = {};
+  filteredClosedEmails.forEach(e => {
+    const type = e['Escalation Type'] || 'Unknown';
+    typeBreakdown[type] = (typeBreakdown[type] || 0) + 1;
+  });
+  
+  // Top performer
+  const agentPerformance = {};
+  filteredClosedEmails.forEach(e => {
+    const agent = e['Action Owner & Timeline'] || e['Closed By'] || 'Unknown';
+    agentPerformance[agent] = (agentPerformance[agent] || 0) + 1;
+  });
+  const topAgent = Object.entries(agentPerformance)
+    .sort((a, b) => b[1] - a[1])[0];
+  
+  // Fastest resolution
+  const fastestResolution = Math.min(...validAgeings);
+  
+  // Render enhanced stats cards
+  const statsHtml = `
+    <div class="stat-card">
+      <h3>Total Closed</h3>
+      <div class="value">${totalClosed}</div>
+      <div class="subtext">All filtered escalations</div>
+    </div>
+    <div class="stat-card">
+      <h3>This Month</h3>
+      <div class="value">${thisMonthCount}</div>
+      <div class="subtext">${thisMonth}</div>
+    </div>
+    <div class="stat-card">
+      <h3>Avg Resolution Time</h3>
+      <div class="value">${avgAgeing.toFixed(1)}</div>
+      <div class="subtext">days to close</div>
+    </div>
+    <div class="stat-card">
+      <h3>Fastest Resolution</h3>
+      <div class="value">${fastestResolution}</div>
+      <div class="subtext">days (best case)</div>
+    </div>
+    <div class="stat-card">
+      <h3>Top Performer</h3>
+      <div class="value">${topAgent ? topAgent[1] : 0}</div>
+      <div class="subtext">${topAgent ? topAgent[0] : 'N/A'}</div>
+    </div>
+    <div class="stat-card">
+      <h3>Escalation Types</h3>
+      <div class="value">${Object.keys(typeBreakdown).length}</div>
+      <div class="subtext">unique categories</div>
+    </div>
+  `;
+  document.getElementById('closedStats').innerHTML = statsHtml;
+  
+  // Render table with enhanced columns
+  renderEnhancedClosedTable();
+}
 
-      const thisMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
-      const thisMonthCount = filteredClosedEmails.filter(e => e.month === thisMonth).length;
+function renderEnhancedClosedTable() {
+  const data = filteredClosedEmails;
+  const table = document.getElementById('closedTable');
+  
+  if (!data.length) {
+    table.innerHTML = '<tbody><tr><td colspan="100" class="no-data">No closed emails match your filters</td></tr></tbody>';
+    return;
+  }
+  
+  const totalPages = Math.ceil(data.length / pageSize.closed);
+  const startIdx = (currentPage.closed - 1) * pageSize.closed;
+  const endIdx = startIdx + pageSize.closed;
+  const pageData = data.slice(startIdx, endIdx);
+  
+  // Define priority columns for closed emails
+  const priorityColumns = [
+    'msgId',
+    'threadId',
+    'subject',
+    'Escalation Type',
+    'date',
+    'Timestamp',
+    'ageing',
+    'month',
+    'Action Owner & Timeline',
+    'Team Lead Call Required',
+    'Issue Attributed Team/Individual',
+    'Priority',
+    'from'
+  ];
+  
+  // Build table header
+  let html = '<thead><tr>';
+  priorityColumns.forEach(col => {
+    const displayName = col === 'msgId' ? 'Message ID' 
+      : col === 'threadId' ? 'Thread ID'
+      : col === 'ageing' ? 'Ageing (Days)'
+      : col === 'date' ? 'Received Date'
+      : col === 'Timestamp' ? 'Closed Date'
+      : col === 'month' ? 'Month Closed'
+      : col;
+    html += `<th>${displayName}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+  
+  // Build table rows
+  pageData.forEach(row => {
+    html += '<tr>';
+    priorityColumns.forEach(col => {
+      const value = row[col] !== undefined ? row[col] : '';
+      html += `<td title="${value}">${value}</td>`;
+    });
+    html += '</tr>';
+  });
+  
+  html += '</tbody>';
+  table.innerHTML = html;
+  
+  // Render pagination
+  renderPagination('closed', currentPage.closed, totalPages, data.length);
+}
 
-      // Render stats cards
-      const statsHtml = `
-        <div class="stat-card">
-          <h3>Total Closed</h3>
-          <div class="value">${totalClosed}</div>
-          <div class="subtext">All time</div>
-        </div>
-        <div class="stat-card">
-          <h3>Closed This Month</h3>
-          <div class="value">${thisMonthCount}</div>
-          <div class="subtext">${thisMonth}</div>
-        </div>
-        <div class="stat-card">
-          <h3>Avg Resolution Time</h3>
-          <div class="value">${avgAgeing.toFixed(1)}</div>
-          <div class="subtext">days</div>
-        </div>
-      `;
-      document.getElementById('closedStats').innerHTML = statsHtml;
-
-      // Render table
-      renderTable('closed');
-    }
 
     function showDetailsPage(type) {
       document.getElementById('mainPage').style.display = 'none';
@@ -930,3 +1033,4 @@
   </script>
 </body>
 </html>
+

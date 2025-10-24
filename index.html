@@ -21,7 +21,7 @@
     }
     
     .container {
-      max-width: 1200px;
+      max-width: 1400px;
       margin: 0 auto;
     }
     
@@ -158,29 +158,62 @@
       border-radius: 16px;
       margin-bottom: 30px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 20px;
     }
     
-    .details-header h2 {
+    .details-header-text h2 {
       color: #1f2937;
       font-size: 2rem;
       margin-bottom: 10px;
     }
     
-    .details-header p {
+    .details-header-text p {
       color: #6b7280;
       font-size: 1rem;
     }
     
-    .table-container {
+    .page-size-selector {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .page-size-selector label {
+      color: #4b5563;
+      font-weight: 500;
+    }
+    
+    .page-size-selector select {
+      padding: 8px 12px;
+      border: 2px solid #e5e7eb;
+      border-radius: 6px;
+      font-family: "Manrope", sans-serif;
+      font-size: 0.95rem;
+      cursor: pointer;
+      background: white;
+    }
+    
+    .table-wrapper {
       background: white;
       border-radius: 16px;
-      overflow: hidden;
       box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+    
+    .table-container {
+      overflow-x: auto;
+      overflow-y: visible;
     }
     
     table {
       width: 100%;
       border-collapse: collapse;
+      min-width: 800px;
     }
     
     th {
@@ -189,24 +222,93 @@
       padding: 18px;
       text-align: left;
       font-weight: 600;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       text-transform: uppercase;
       letter-spacing: 0.5px;
+      white-space: nowrap;
+      position: sticky;
+      top: 0;
+      z-index: 10;
     }
     
     td {
       padding: 16px 18px;
       border-bottom: 1px solid #e5e7eb;
       color: #374151;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
+      white-space: nowrap;
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    td:hover {
+      white-space: normal;
+      overflow: visible;
     }
     
     tr:last-child td {
       border-bottom: none;
     }
     
-    tr:hover {
+    tbody tr:hover {
       background: #f9fafb;
+    }
+    
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 15px;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      flex-wrap: wrap;
+    }
+    
+    .pagination-info {
+      color: #6b7280;
+      font-size: 0.95rem;
+      margin: 0 10px;
+    }
+    
+    .pagination button {
+      padding: 10px 20px;
+      background: #09b367;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-family: "Manrope", sans-serif;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-size: 0.95rem;
+    }
+    
+    .pagination button:hover:not(:disabled) {
+      background: #07a359;
+      transform: translateY(-2px);
+    }
+    
+    .pagination button:disabled {
+      background: #d1d5db;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .pagination-pages {
+      display: flex;
+      gap: 5px;
+    }
+    
+    .pagination-pages button {
+      padding: 8px 14px;
+      min-width: 40px;
+    }
+    
+    .pagination-pages button.active {
+      background: #065f46;
     }
     
     .no-data {
@@ -223,6 +325,24 @@
       border-radius: 12px;
       text-align: center;
       margin: 20px 0;
+    }
+    
+    /* Scrollbar styling */
+    .table-container::-webkit-scrollbar {
+      height: 10px;
+    }
+    
+    .table-container::-webkit-scrollbar-track {
+      background: #f1f1f1;
+    }
+    
+    .table-container::-webkit-scrollbar-thumb {
+      background: #09b367;
+      border-radius: 5px;
+    }
+    
+    .table-container::-webkit-scrollbar-thumb:hover {
+      background: #07a359;
     }
   </style>
 </head>
@@ -254,23 +374,53 @@
     <div id="openDetailsPage" class="details-page">
       <button class="back-button" onclick="showMainPage()">← Back to Dashboard</button>
       <div class="details-header">
-        <h2>Open Emails</h2>
-        <p>Emails that haven't been picked up yet</p>
+        <div class="details-header-text">
+          <h2>Open Emails</h2>
+          <p>Emails that haven't been picked up yet</p>
+        </div>
+        <div class="page-size-selector">
+          <label>Show:</label>
+          <select id="openPageSize" onchange="changePageSize('open', this.value)">
+            <option value="10">10</option>
+            <option value="20" selected>20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+          <span>per page</span>
+        </div>
       </div>
-      <div class="table-container">
-        <table id="openTable"></table>
+      <div class="table-wrapper">
+        <div class="table-container">
+          <table id="openTable"></table>
+        </div>
       </div>
+      <div id="openPagination" class="pagination"></div>
     </div>
 
     <div id="progressDetailsPage" class="details-page">
       <button class="back-button" onclick="showMainPage()">← Back to Dashboard</button>
       <div class="details-header">
-        <h2>In-Progress Emails</h2>
-        <p>Emails currently being worked on</p>
+        <div class="details-header-text">
+          <h2>In-Progress Emails</h2>
+          <p>Emails currently being worked on</p>
+        </div>
+        <div class="page-size-selector">
+          <label>Show:</label>
+          <select id="progressPageSize" onchange="changePageSize('progress', this.value)">
+            <option value="10">10</option>
+            <option value="20" selected>20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+          <span>per page</span>
+        </div>
       </div>
-      <div class="table-container">
-        <table id="progressTable"></table>
+      <div class="table-wrapper">
+        <div class="table-container">
+          <table id="progressTable"></table>
+        </div>
       </div>
+      <div id="progressPagination" class="pagination"></div>
     </div>
   </div>
 
@@ -281,6 +431,8 @@
 
     let globalOpenEmails = [];
     let globalProgressEmails = [];
+    let currentPage = { open: 1, progress: 1 };
+    let pageSize = { open: 20, progress: 20 };
 
     // Fetch and parse CSV using PapaParse
     async function fetchCSV(url) {
@@ -349,13 +501,14 @@
 
     function showDetailsPage(type) {
       document.getElementById('mainPage').style.display = 'none';
+      currentPage[type] = 1;
       
       if (type === 'open') {
         document.getElementById('openDetailsPage').classList.add('active');
-        renderTable('openTable', globalOpenEmails, 'Open Emails');
+        renderTable('open');
       } else if (type === 'progress') {
         document.getElementById('progressDetailsPage').classList.add('active');
-        renderTable('progressTable', globalProgressEmails, 'In-Progress Emails');
+        renderTable('progress');
       }
     }
 
@@ -365,34 +518,117 @@
       document.getElementById('progressDetailsPage').classList.remove('active');
     }
 
-    function renderTable(tableId, data, title) {
+    function changePageSize(type, size) {
+      pageSize[type] = parseInt(size);
+      currentPage[type] = 1;
+      renderTable(type);
+    }
+
+    function changePage(type, page) {
+      currentPage[type] = page;
+      renderTable(type);
+      // Scroll to top of table
+      document.querySelector(`#${type}DetailsPage`).scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function renderTable(type) {
+      const tableId = type + 'Table';
+      const paginationId = type + 'Pagination';
+      const data = type === 'open' ? globalOpenEmails : globalProgressEmails;
       const table = document.getElementById(tableId);
+      const paginationContainer = document.getElementById(paginationId);
       
       if (!data.length) {
-        table.innerHTML = '<tr><td colspan="100%" class="no-data">No emails found</td></tr>';
+        table.innerHTML = '<tbody><tr><td colspan="100" class="no-data">No emails found</td></tr></tbody>';
+        paginationContainer.innerHTML = '';
         return;
       }
+
+      // Calculate pagination
+      const totalPages = Math.ceil(data.length / pageSize[type]);
+      const startIdx = (currentPage[type] - 1) * pageSize[type];
+      const endIdx = startIdx + pageSize[type];
+      const pageData = data.slice(startIdx, endIdx);
 
       // Get headers from first row
       const headers = Object.keys(data[0]);
       
+      // Render table
       let html = '<thead><tr>';
       headers.forEach(header => {
         html += `<th>${header}</th>`;
       });
       html += '</tr></thead><tbody>';
 
-      data.forEach(row => {
+      pageData.forEach(row => {
         html += '<tr>';
         headers.forEach(header => {
           const value = row[header] || '';
-          html += `<td>${value}</td>`;
+          html += `<td title="${value}">${value}</td>`;
         });
         html += '</tr>';
       });
 
       html += '</tbody>';
       table.innerHTML = html;
+
+      // Render pagination
+      renderPagination(type, currentPage[type], totalPages, data.length);
+    }
+
+    function renderPagination(type, current, total, totalItems) {
+      const container = document.getElementById(type + 'Pagination');
+      
+      if (total <= 1) {
+        container.innerHTML = `<div class="pagination-info">Showing all ${totalItems} emails</div>`;
+        return;
+      }
+
+      const startItem = (current - 1) * pageSize[type] + 1;
+      const endItem = Math.min(current * pageSize[type], totalItems);
+
+      let html = `
+        <button onclick="changePage('${type}', ${current - 1})" ${current === 1 ? 'disabled' : ''}>
+          ← Previous
+        </button>
+        <div class="pagination-info">
+          Showing ${startItem}-${endItem} of ${totalItems} emails
+        </div>
+      `;
+
+      // Page numbers
+      html += '<div class="pagination-pages">';
+      
+      // Always show first page
+      if (current > 3) {
+        html += `<button onclick="changePage('${type}', 1)">1</button>`;
+        if (current > 4) {
+          html += `<button disabled>...</button>`;
+        }
+      }
+
+      // Show pages around current
+      for (let i = Math.max(1, current - 2); i <= Math.min(total, current + 2); i++) {
+        html += `<button onclick="changePage('${type}', ${i})" ${i === current ? 'class="active"' : ''}>${i}</button>`;
+      }
+
+      // Always show last page
+      if (current < total - 2) {
+        if (current < total - 3) {
+          html += `<button disabled>...</button>`;
+        }
+        html += `<button onclick="changePage('${type}', ${total})">${total}</button>`;
+      }
+
+      html += '</div>';
+
+      html += `
+        <button onclick="changePage('${type}', ${current + 1})" ${current === total ? 'disabled' : ''}>
+          Next →
+        </button>
+      `;
+
+      container.innerHTML = html;
     }
 
     // Event listeners

@@ -2,129 +2,404 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Escalation Email Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
     body {
       font-family: "Manrope", sans-serif;
-      background: #f4f6f8;
-      padding: 40px;
-      text-align: center;
+      background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+      min-height: 100vh;
+      padding: 40px 20px;
     }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
     h1 {
       color: #09b367;
+      text-align: center;
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin-bottom: 10px;
     }
+    
+    .subtitle {
+      text-align: center;
+      color: #6b7280;
+      margin-bottom: 40px;
+      font-size: 1.1rem;
+    }
+    
+    .stats-container {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      flex-wrap: wrap;
+      margin-bottom: 40px;
+    }
+    
     .counter-box {
-      display: inline-block;
       background: white;
-      border-radius: 12px;
-      padding: 25px 40px;
-      margin: 15px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      border-radius: 16px;
+      padding: 40px 60px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.05);
       cursor: pointer;
-      transition: 0.3s;
+      transition: all 0.3s ease;
+      min-width: 280px;
+      text-align: center;
     }
+    
     .counter-box:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+      transform: translateY(-8px);
+      box-shadow: 0 12px 24px rgba(0,0,0,0.15), 0 6px 12px rgba(0,0,0,0.1);
     }
+    
+    .counter-box.open {
+      border-top: 4px solid #3b82f6;
+    }
+    
+    .counter-box.progress {
+      border-top: 4px solid #f59e0b;
+    }
+    
     .count {
-      font-size: 48px;
-      font-weight: bold;
-      color: #333;
+      font-size: 4rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+      background: linear-gradient(135deg, #09b367 0%, #07a359 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
-    #details {
-      margin-top: 40px;
-      text-align: left;
+    
+    .counter-box.open .count {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .counter-box.progress .count {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .label {
+      font-size: 1.1rem;
+      color: #4b5563;
+      font-weight: 500;
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 60px;
+      font-size: 1.2rem;
+      color: #6b7280;
+    }
+    
+    .spinner {
+      border: 4px solid #f3f4f6;
+      border-top: 4px solid #09b367;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .details-page {
+      display: none;
+    }
+    
+    .details-page.active {
+      display: block;
+    }
+    
+    .back-button {
       display: inline-block;
-      width: 80%;
-      background: #fff;
-      border-radius: 10px;
-      padding: 20px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      background: #09b367;
+      color: white;
+      padding: 12px 30px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      margin-bottom: 30px;
+      cursor: pointer;
+      border: none;
+      font-size: 1rem;
+      transition: all 0.3s ease;
     }
+    
+    .back-button:hover {
+      background: #07a359;
+      transform: translateX(-5px);
+    }
+    
+    .details-header {
+      background: white;
+      padding: 30px;
+      border-radius: 16px;
+      margin-bottom: 30px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    .details-header h2 {
+      color: #1f2937;
+      font-size: 2rem;
+      margin-bottom: 10px;
+    }
+    
+    .details-header p {
+      color: #6b7280;
+      font-size: 1rem;
+    }
+    
+    .table-container {
+      background: white;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
     table {
       width: 100%;
       border-collapse: collapse;
     }
-    th, td {
-      padding: 10px;
-      border-bottom: 1px solid #ddd;
-      text-align: left;
-    }
+    
     th {
       background: #09b367;
       color: white;
+      padding: 18px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    td {
+      padding: 16px 18px;
+      border-bottom: 1px solid #e5e7eb;
+      color: #374151;
+      font-size: 0.95rem;
+    }
+    
+    tr:last-child td {
+      border-bottom: none;
+    }
+    
+    tr:hover {
+      background: #f9fafb;
+    }
+    
+    .no-data {
+      text-align: center;
+      padding: 60px;
+      color: #9ca3af;
+      font-size: 1.1rem;
+    }
+    
+    .error {
+      background: #fee2e2;
+      color: #991b1b;
+      padding: 20px;
+      border-radius: 12px;
+      text-align: center;
+      margin: 20px 0;
     }
   </style>
 </head>
 <body>
-  <h1>Escalation Email Dashboard</h1>
-  <div id="stats">
-    <div class="counter-box" id="openBox">
-      <div class="count" id="openCount">0</div>
-      <div>Open Emails</div>
+  <div class="container">
+    <!-- Main Dashboard Page -->
+    <div id="mainPage">
+      <h1>Escalation Email Dashboard</h1>
+      <p class="subtitle">Track and manage escalation emails in real-time</p>
+      
+      <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p>Loading dashboard data...</p>
+      </div>
+      
+      <div id="stats" class="stats-container" style="display: none;">
+        <div class="counter-box open" id="openBox">
+          <div class="count" id="openCount">0</div>
+          <div class="label">Open Emails</div>
+        </div>
+        <div class="counter-box progress" id="progressBox">
+          <div class="count" id="progressCount">0</div>
+          <div class="label">In-Progress Emails</div>
+        </div>
+      </div>
     </div>
-    <div class="counter-box" id="progressBox">
-      <div class="count" id="progressCount">0</div>
-      <div>In-Progress Emails</div>
+
+    <!-- Details Pages -->
+    <div id="openDetailsPage" class="details-page">
+      <button class="back-button" onclick="showMainPage()">← Back to Dashboard</button>
+      <div class="details-header">
+        <h2>Open Emails</h2>
+        <p>Emails that haven't been picked up yet</p>
+      </div>
+      <div class="table-container">
+        <table id="openTable"></table>
+      </div>
+    </div>
+
+    <div id="progressDetailsPage" class="details-page">
+      <button class="back-button" onclick="showMainPage()">← Back to Dashboard</button>
+      <div class="details-header">
+        <h2>In-Progress Emails</h2>
+        <p>Emails currently being worked on</p>
+      </div>
+      <div class="table-container">
+        <table id="progressTable"></table>
+      </div>
     </div>
   </div>
 
-  <div id="details"></div>
-
   <script>
     const CSV_INTERNAL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPVg1SHavBi-x057E5EurZKxohmfAtQx7EXvcK509VHQF6zzjDr3JjbJLH7lH2Sugo9jd61F0PI2jl/pub?gid=1394291922&single=true&output=csv";
-    const CSV_FORM = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPVg1SHavBi-x057E5EurZKxohmfAtQx7EXvcK509VHQF6zzjDr3JjbJLH7lH2Sugo9jd61F0PI2jl/pub?gid=88127589&single=true&output=csv"; // Replace gid with Form Responses 1 gid
-    const CSV_CLOSE = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPVg1SHavBi-x057E5EurZKxohmfAtQx7EXvcK509VHQF6zzjDr3JjbJLH7lH2Sugo9jd61F0PI2jl/pub?gid=1713040682&single=true&output=csv"; // Replace gid with Form Responses 2 gid
+    const CSV_FORM = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPVg1SHavBi-x057E5EurZKxohmfAtQx7EXvcK509VHQF6zzjDr3JjbJLH7lH2Sugo9jd61F0PI2jl/pub?gid=88127589&single=true&output=csv";
+    const CSV_CLOSE = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPVg1SHavBi-x057E5EurZKxohmfAtQx7EXvcK509VHQF6zzjDr3JjbJLH7lH2Sugo9jd61F0PI2jl/pub?gid=1713040682&single=true&output=csv";
 
-    // Helper to parse CSV
+    let globalOpenEmails = [];
+    let globalProgressEmails = [];
+
+    // Fetch and parse CSV using PapaParse
     async function fetchCSV(url) {
-      const res = await fetch(url);
-      const text = await res.text();
-      const [headerLine, ...lines] = text.trim().split("\n");
-      const headers = headerLine.split(",");
-      return lines.map(l => {
-        const values = l.split(",");
-        const obj = {};
-        headers.forEach((h, i) => obj[h.trim()] = values[i]?.trim());
-        return obj;
-      });
+      try {
+        const response = await fetch(url);
+        const text = await response.text();
+        
+        return new Promise((resolve, reject) => {
+          Papa.parse(text, {
+            header: true,
+            skipEmptyLines: true,
+            dynamicTyping: false,
+            complete: (results) => {
+              resolve(results.data);
+            },
+            error: (error) => {
+              reject(error);
+            }
+          });
+        });
+      } catch (error) {
+        console.error('Error fetching CSV:', error);
+        throw error;
+      }
     }
 
     async function loadDashboard() {
-      const internal = await fetchCSV(CSV_INTERNAL);
-      const form = await fetchCSV(CSV_FORM);
-      const closed = await fetchCSV(CSV_CLOSE);
+      try {
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('stats').style.display = 'none';
 
-      const formMsgIds = new Set(form.map(r => r.msgId));
-      const closedMsgIds = new Set(closed.map(r => r.msgId));
+        const [internal, form, closed] = await Promise.all([
+          fetchCSV(CSV_INTERNAL),
+          fetchCSV(CSV_FORM),
+          fetchCSV(CSV_CLOSE)
+        ]);
 
-      const openEmails = internal.filter(r => !formMsgIds.has(r.msgId));
-      const progressEmails = internal.filter(r => formMsgIds.has(r.msgId) && !closedMsgIds.has(r.msgId));
+        // Create sets for quick lookup
+        const formMsgIds = new Set(form.map(r => r.msgId?.trim()).filter(Boolean));
+        const closedMsgIds = new Set(closed.map(r => r.msgId?.trim()).filter(Boolean));
 
-      document.getElementById("openCount").innerText = openEmails.length;
-      document.getElementById("progressCount").innerText = progressEmails.length;
+        // Filter emails
+        globalOpenEmails = internal.filter(r => {
+          const msgId = r.msgId?.trim();
+          return msgId && !formMsgIds.has(msgId);
+        });
 
-      document.getElementById("openBox").onclick = () => showDetails(openEmails, "Open Emails");
-      document.getElementById("progressBox").onclick = () => showDetails(progressEmails, "In-Progress Emails");
+        globalProgressEmails = internal.filter(r => {
+          const msgId = r.msgId?.trim();
+          return msgId && formMsgIds.has(msgId) && !closedMsgIds.has(msgId);
+        });
+
+        // Update counts
+        document.getElementById('openCount').innerText = globalOpenEmails.length;
+        document.getElementById('progressCount').innerText = globalProgressEmails.length;
+
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('stats').style.display = 'flex';
+
+      } catch (error) {
+        console.error('Error loading dashboard:', error);
+        document.getElementById('loading').innerHTML = 
+          '<div class="error">Failed to load dashboard data. Please refresh the page.</div>';
+      }
     }
 
-    function showDetails(data, title) {
-      const container = document.getElementById("details");
-      container.innerHTML = `<h2>${title}</h2>`;
+    function showDetailsPage(type) {
+      document.getElementById('mainPage').style.display = 'none';
+      
+      if (type === 'open') {
+        document.getElementById('openDetailsPage').classList.add('active');
+        renderTable('openTable', globalOpenEmails, 'Open Emails');
+      } else if (type === 'progress') {
+        document.getElementById('progressDetailsPage').classList.add('active');
+        renderTable('progressTable', globalProgressEmails, 'In-Progress Emails');
+      }
+    }
+
+    function showMainPage() {
+      document.getElementById('mainPage').style.display = 'block';
+      document.getElementById('openDetailsPage').classList.remove('active');
+      document.getElementById('progressDetailsPage').classList.remove('active');
+    }
+
+    function renderTable(tableId, data, title) {
+      const table = document.getElementById(tableId);
+      
       if (!data.length) {
-        container.innerHTML += "<p>No emails found.</p>";
+        table.innerHTML = '<tr><td colspan="100%" class="no-data">No emails found</td></tr>';
         return;
       }
-      let table = "<table><tr><th>Msg ID</th><th>Subject</th><th>From</th><th>Date</th></tr>";
-      data.forEach(r => {
-        table += `<tr><td>${r.msgId}</td><td>${r.subject}</td><td>${r.from}</td><td>${r.date}</td></tr>`;
+
+      // Get headers from first row
+      const headers = Object.keys(data[0]);
+      
+      let html = '<thead><tr>';
+      headers.forEach(header => {
+        html += `<th>${header}</th>`;
       });
-      table += "</table>";
-      container.innerHTML += table;
+      html += '</tr></thead><tbody>';
+
+      data.forEach(row => {
+        html += '<tr>';
+        headers.forEach(header => {
+          const value = row[header] || '';
+          html += `<td>${value}</td>`;
+        });
+        html += '</tr>';
+      });
+
+      html += '</tbody>';
+      table.innerHTML = html;
     }
 
-    // Auto-refresh every hour (3600000 ms)
+    // Event listeners
+    document.getElementById('openBox').addEventListener('click', () => showDetailsPage('open'));
+    document.getElementById('progressBox').addEventListener('click', () => showDetailsPage('progress'));
+
+    // Initial load and auto-refresh every hour
     loadDashboard();
     setInterval(loadDashboard, 3600000);
   </script>

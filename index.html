@@ -31,6 +31,7 @@
       font-size: 2.5rem;
       font-weight: 700;
       margin-bottom: 10px;
+      font-family: "Manrope", sans-serif;
     }
     
     .subtitle {
@@ -38,6 +39,7 @@
       color: #6b7280;
       margin-bottom: 40px;
       font-size: 1.1rem;
+      font-family: "Manrope", sans-serif;
     }
     
     .stats-container {
@@ -72,6 +74,10 @@
       border-top: 4px solid #f59e0b;
     }
     
+    .counter-box.closed {
+      border-top: 4px solid #10b981;
+    }
+    
     .count {
       font-size: 4rem;
       font-weight: 700;
@@ -96,10 +102,18 @@
       background-clip: text;
     }
     
+    .counter-box.closed .count {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
     .label {
       font-size: 1.1rem;
       color: #4b5563;
       font-weight: 500;
+      font-family: "Manrope", sans-serif;
     }
     
     .loading {
@@ -107,6 +121,7 @@
       padding: 60px;
       font-size: 1.2rem;
       color: #6b7280;
+      font-family: "Manrope", sans-serif;
     }
     
     .spinner {
@@ -132,24 +147,53 @@
       display: block;
     }
     
-    .back-button {
+    .top-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+    
+    .back-button, .form-button {
       display: inline-block;
-      background: #09b367;
       color: white;
       padding: 12px 30px;
       border-radius: 8px;
       text-decoration: none;
       font-weight: 600;
-      margin-bottom: 30px;
       cursor: pointer;
       border: none;
       font-size: 1rem;
+      font-family: "Manrope", sans-serif;
       transition: all 0.3s ease;
+    }
+    
+    .back-button {
+      background: #09b367;
     }
     
     .back-button:hover {
       background: #07a359;
       transform: translateX(-5px);
+    }
+    
+    .form-button {
+      background: #3b82f6;
+    }
+    
+    .form-button:hover {
+      background: #2563eb;
+      transform: translateY(-2px);
+    }
+    
+    .form-button.closure {
+      background: #f59e0b;
+    }
+    
+    .form-button.closure:hover {
+      background: #d97706;
     }
     
     .details-header {
@@ -169,11 +213,13 @@
       color: #1f2937;
       font-size: 2rem;
       margin-bottom: 10px;
+      font-family: "Manrope", sans-serif;
     }
     
     .details-header-text p {
       color: #6b7280;
       font-size: 1rem;
+      font-family: "Manrope", sans-serif;
     }
     
     .page-size-selector {
@@ -182,9 +228,10 @@
       gap: 10px;
     }
     
-    .page-size-selector label {
+    .page-size-selector label, .page-size-selector span {
       color: #4b5563;
       font-weight: 500;
+      font-family: "Manrope", sans-serif;
     }
     
     .page-size-selector select {
@@ -223,6 +270,7 @@
       text-align: left;
       font-weight: 600;
       font-size: 0.9rem;
+      font-family: "Manrope", sans-serif;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       white-space: nowrap;
@@ -236,6 +284,7 @@
       border-bottom: 1px solid #e5e7eb;
       color: #374151;
       font-size: 0.9rem;
+      font-family: "Manrope", sans-serif;
       white-space: nowrap;
       max-width: 300px;
       overflow: hidden;
@@ -270,6 +319,7 @@
     .pagination-info {
       color: #6b7280;
       font-size: 0.95rem;
+      font-family: "Manrope", sans-serif;
       margin: 0 10px;
     }
     
@@ -311,11 +361,78 @@
       background: #065f46;
     }
     
+    .stats-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    
+    .stat-card {
+      background: white;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    .stat-card h3 {
+      color: #6b7280;
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-family: "Manrope", sans-serif;
+    }
+    
+    .stat-card .value {
+      color: #1f2937;
+      font-size: 2rem;
+      font-weight: 700;
+      font-family: "Manrope", sans-serif;
+    }
+    
+    .stat-card .subtext {
+      color: #9ca3af;
+      font-size: 0.85rem;
+      margin-top: 5px;
+      font-family: "Manrope", sans-serif;
+    }
+    
+    .filters {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    
+    .filters label {
+      font-weight: 600;
+      color: #4b5563;
+      font-family: "Manrope", sans-serif;
+    }
+    
+    .filters select {
+      padding: 8px 12px;
+      border: 2px solid #e5e7eb;
+      border-radius: 6px;
+      font-family: "Manrope", sans-serif;
+      font-size: 0.95rem;
+      cursor: pointer;
+      background: white;
+    }
+    
     .no-data {
       text-align: center;
       padding: 60px;
       color: #9ca3af;
       font-size: 1.1rem;
+      font-family: "Manrope", sans-serif;
     }
     
     .error {
@@ -325,9 +442,9 @@
       border-radius: 12px;
       text-align: center;
       margin: 20px 0;
+      font-family: "Manrope", sans-serif;
     }
     
-    /* Scrollbar styling */
     .table-container::-webkit-scrollbar {
       height: 10px;
     }
@@ -367,12 +484,21 @@
           <div class="count" id="progressCount">0</div>
           <div class="label">In-Progress Emails</div>
         </div>
+        <div class="counter-box closed" id="closedBox">
+          <div class="count" id="closedCount">0</div>
+          <div class="label">Closed Emails</div>
+        </div>
       </div>
     </div>
 
-    <!-- Details Pages -->
+    <!-- Open Emails Page -->
     <div id="openDetailsPage" class="details-page">
-      <button class="back-button" onclick="showMainPage()">← Back to Dashboard</button>
+      <div class="top-actions">
+        <button class="back-button" onclick="showMainPage()">← Back to Dashboard</button>
+        <a href="https://forms.gle/kZpcF9oGzkyaqZAn8" target="_blank" class="form-button">
+          Move to In-Progress →
+        </a>
+      </div>
       <div class="details-header">
         <div class="details-header-text">
           <h2>Open Emails</h2>
@@ -397,8 +523,14 @@
       <div id="openPagination" class="pagination"></div>
     </div>
 
+    <!-- In-Progress Emails Page -->
     <div id="progressDetailsPage" class="details-page">
-      <button class="back-button" onclick="showMainPage()">← Back to Dashboard</button>
+      <div class="top-actions">
+        <button class="back-button" onclick="showMainPage()">← Back to Dashboard</button>
+        <a href="https://forms.gle/2SKJFFmus6c77rqm6" target="_blank" class="form-button closure">
+          Close Escalation →
+        </a>
+      </div>
       <div class="details-header">
         <div class="details-header-text">
           <h2>In-Progress Emails</h2>
@@ -422,19 +554,67 @@
       </div>
       <div id="progressPagination" class="pagination"></div>
     </div>
+
+    <!-- Closed Emails Analytics Page -->
+    <div id="closedDetailsPage" class="details-page">
+      <div class="top-actions">
+        <button class="back-button" onclick="showMainPage()">← Back to Dashboard</button>
+      </div>
+      <div class="details-header">
+        <div class="details-header-text">
+          <h2>Closed Emails Analytics</h2>
+          <p>Historical view of resolved escalations</p>
+        </div>
+      </div>
+      
+      <!-- Statistics Cards -->
+      <div class="stats-cards" id="closedStats"></div>
+      
+      <!-- Filters -->
+      <div class="filters">
+        <label>Filter by Month:</label>
+        <select id="monthFilter" onchange="filterClosedData()">
+          <option value="all">All Months</option>
+        </select>
+        
+        <label>Filter by Agent:</label>
+        <select id="agentFilter" onchange="filterClosedData()">
+          <option value="all">All Agents</option>
+        </select>
+        
+        <label>Show:</label>
+        <select id="closedPageSize" onchange="changePageSize('closed', this.value)">
+          <option value="10">10</option>
+          <option value="20" selected>20</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+        <span>per page</span>
+      </div>
+      
+      <div class="table-wrapper">
+        <div class="table-container">
+          <table id="closedTable"></table>
+        </div>
+      </div>
+      <div id="closedPagination" class="pagination"></div>
+    </div>
   </div>
 
   <script>
     const CSV_INTERNAL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPVg1SHavBi-x057E5EurZKxohmfAtQx7EXvcK509VHQF6zzjDr3JjbJLH7lH2Sugo9jd61F0PI2jl/pub?gid=1394291922&single=true&output=csv";
     const CSV_FORM = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPVg1SHavBi-x057E5EurZKxohmfAtQx7EXvcK509VHQF6zzjDr3JjbJLH7lH2Sugo9jd61F0PI2jl/pub?gid=88127589&single=true&output=csv";
     const CSV_CLOSE = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPVg1SHavBi-x057E5EurZKxohmfAtQx7EXvcK509VHQF6zzjDr3JjbJLH7lH2Sugo9jd61F0PI2jl/pub?gid=1713040682&single=true&output=csv";
+    const FORM_INPROGRESS = "https://forms.gle/kZpcF9oGzkyaqZAn8";
+    const FORM_CLOSURE = "https://forms.gle/2SKJFFmus6c77rqm6";
 
     let globalOpenEmails = [];
     let globalProgressEmails = [];
-    let currentPage = { open: 1, progress: 1 };
-    let pageSize = { open: 20, progress: 20 };
+    let globalClosedEmails = [];
+    let filteredClosedEmails = [];
+    let currentPage = { open: 1, progress: 1, closed: 1 };
+    let pageSize = { open: 20, progress: 20, closed: 20 };
 
-    // Fetch and parse CSV using PapaParse
     async function fetchCSV(url) {
       try {
         const response = await fetch(url);
@@ -459,6 +639,14 @@
       }
     }
 
+    function calculateAgeing(startDate, endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const diffTime = Math.abs(end - start);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays;
+    }
+
     async function loadDashboard() {
       try {
         document.getElementById('loading').style.display = 'block';
@@ -470,11 +658,9 @@
           fetchCSV(CSV_CLOSE)
         ]);
 
-        // Create sets for quick lookup
         const formMsgIds = new Set(form.map(r => r.msgId?.trim()).filter(Boolean));
         const closedMsgIds = new Set(closed.map(r => r.msgId?.trim()).filter(Boolean));
 
-        // Filter emails
         globalOpenEmails = internal.filter(r => {
           const msgId = r.msgId?.trim();
           return msgId && !formMsgIds.has(msgId);
@@ -485,18 +671,106 @@
           return msgId && formMsgIds.has(msgId) && !closedMsgIds.has(msgId);
         });
 
-        // Update counts
+        // Process closed emails with additional analytics
+        globalClosedEmails = closed.map(c => {
+          const msgId = c.msgId?.trim();
+          const internalEmail = internal.find(i => i.msgId?.trim() === msgId);
+          
+          return {
+            ...c,
+            ...internalEmail,
+            ageing: c.Timestamp && internalEmail?.date ? 
+              calculateAgeing(internalEmail.date, c.Timestamp) : 'N/A',
+            month: c.Timestamp ? new Date(c.Timestamp).toLocaleString('default', { month: 'long', year: 'numeric' }) : 'N/A'
+          };
+        });
+
+        filteredClosedEmails = [...globalClosedEmails];
+
         document.getElementById('openCount').innerText = globalOpenEmails.length;
         document.getElementById('progressCount').innerText = globalProgressEmails.length;
+        document.getElementById('closedCount').innerText = globalClosedEmails.length;
 
         document.getElementById('loading').style.display = 'none';
         document.getElementById('stats').style.display = 'flex';
+
+        populateFilters();
 
       } catch (error) {
         console.error('Error loading dashboard:', error);
         document.getElementById('loading').innerHTML = 
           '<div class="error">Failed to load dashboard data. Please refresh the page.</div>';
       }
+    }
+
+    function populateFilters() {
+      // Populate month filter
+      const months = [...new Set(globalClosedEmails.map(e => e.month))].filter(m => m !== 'N/A').sort();
+      const monthFilter = document.getElementById('monthFilter');
+      monthFilter.innerHTML = '<option value="all">All Months</option>';
+      months.forEach(m => {
+        monthFilter.innerHTML += `<option value="${m}">${m}</option>`;
+      });
+
+      // Populate agent filter (assuming there's a field like 'Action Owner & Timeline' or 'Team Lead')
+      const agents = [...new Set(globalClosedEmails.map(e => e['Action Owner & Timeline'] || e['Team Lead Call Required'] || e['Issue Attributed Team/Individual']).filter(Boolean))].sort();
+      const agentFilter = document.getElementById('agentFilter');
+      agentFilter.innerHTML = '<option value="all">All Agents</option>';
+      agents.forEach(a => {
+        agentFilter.innerHTML += `<option value="${a}">${a}</option>`;
+      });
+    }
+
+    function filterClosedData() {
+      const monthFilter = document.getElementById('monthFilter').value;
+      const agentFilter = document.getElementById('agentFilter').value;
+
+      filteredClosedEmails = globalClosedEmails.filter(e => {
+        const monthMatch = monthFilter === 'all' || e.month === monthFilter;
+        const agentMatch = agentFilter === 'all' || 
+          e['Action Owner & Timeline'] === agentFilter ||
+          e['Team Lead Call Required'] === agentFilter ||
+          e['Issue Attributed Team/Individual'] === agentFilter;
+        return monthMatch && agentMatch;
+      });
+
+      currentPage.closed = 1;
+      renderClosedAnalytics();
+    }
+
+    function renderClosedAnalytics() {
+      // Calculate statistics
+      const totalClosed = filteredClosedEmails.length;
+      const avgAgeing = filteredClosedEmails.reduce((sum, e) => {
+        const age = typeof e.ageing === 'number' ? e.ageing : 0;
+        return sum + age;
+      }, 0) / (totalClosed || 1);
+
+      const thisMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+      const thisMonthCount = filteredClosedEmails.filter(e => e.month === thisMonth).length;
+
+      // Render stats cards
+      const statsHtml = `
+        <div class="stat-card">
+          <h3>Total Closed</h3>
+          <div class="value">${totalClosed}</div>
+          <div class="subtext">All time</div>
+        </div>
+        <div class="stat-card">
+          <h3>Closed This Month</h3>
+          <div class="value">${thisMonthCount}</div>
+          <div class="subtext">${thisMonth}</div>
+        </div>
+        <div class="stat-card">
+          <h3>Avg Resolution Time</h3>
+          <div class="value">${avgAgeing.toFixed(1)}</div>
+          <div class="subtext">days</div>
+        </div>
+      `;
+      document.getElementById('closedStats').innerHTML = statsHtml;
+
+      // Render table
+      renderTable('closed');
     }
 
     function showDetailsPage(type) {
@@ -509,6 +783,9 @@
       } else if (type === 'progress') {
         document.getElementById('progressDetailsPage').classList.add('active');
         renderTable('progress');
+      } else if (type === 'closed') {
+        document.getElementById('closedDetailsPage').classList.add('active');
+        renderClosedAnalytics();
       }
     }
 
@@ -516,25 +793,38 @@
       document.getElementById('mainPage').style.display = 'block';
       document.getElementById('openDetailsPage').classList.remove('active');
       document.getElementById('progressDetailsPage').classList.remove('active');
+      document.getElementById('closedDetailsPage').classList.remove('active');
     }
 
     function changePageSize(type, size) {
       pageSize[type] = parseInt(size);
       currentPage[type] = 1;
-      renderTable(type);
+      if (type === 'closed') {
+        renderClosedAnalytics();
+      } else {
+        renderTable(type);
+      }
     }
 
     function changePage(type, page) {
       currentPage[type] = page;
-      renderTable(type);
-      // Scroll to top of table
+      if (type === 'closed') {
+        renderClosedAnalytics();
+      } else {
+        renderTable(type);
+      }
       document.querySelector(`#${type}DetailsPage`).scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     function renderTable(type) {
       const tableId = type + 'Table';
       const paginationId = type + 'Pagination';
-      const data = type === 'open' ? globalOpenEmails : globalProgressEmails;
+      let data;
+      
+      if (type === 'open') data = globalOpenEmails;
+      else if (type === 'progress') data = globalProgressEmails;
+      else if (type === 'closed') data = filteredClosedEmails;
+      
       const table = document.getElementById(tableId);
       const paginationContainer = document.getElementById(paginationId);
       
@@ -544,7 +834,6 @@
         return;
       }
 
-      // Calculate pagination
       const totalPages = Math.ceil(data.length / pageSize[type]);
       const startIdx = (currentPage[type] - 1) * pageSize[type];
       const endIdx = startIdx + pageSize[type];

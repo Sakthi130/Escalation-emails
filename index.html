@@ -478,15 +478,15 @@
       <div id="stats" class="stats-container" style="display: none;">
         <div class="counter-box open" id="openBox">
           <div class="count" id="openCount">0</div>
-          <div class="label">Open Emails</div>
+          <div class="label">Open Threads</div>
         </div>
         <div class="counter-box progress" id="progressBox">
           <div class="count" id="progressCount">0</div>
-          <div class="label">In-Progress Emails</div>
+          <div class="label">In-Progress Threads</div>
         </div>
         <div class="counter-box closed" id="closedBox">
           <div class="count" id="closedCount">0</div>
-          <div class="label">Closed Emails</div>
+          <div class="label">Closed Threads</div>
         </div>
       </div>
     </div>
@@ -528,13 +528,13 @@
       <div class="top-actions">
         <button class="back-button" onclick="showMainPage()">← Back to Dashboard</button>
         <a href="https://forms.gle/2SKJFFmus6c77rqm6" target="_blank" class="form-button closure">
-          Close Escalation →
+          Close Thread →
         </a>
       </div>
       <div class="details-header">
         <div class="details-header-text">
-          <h2>In-Progress Emails</h2>
-          <p>Emails currently being worked on</p>
+          <h2>In-Progress Threads</h2>
+          <p>Threads currently being worked on</p>
         </div>
         <div class="page-size-selector">
           <label>Show:</label>
@@ -555,15 +555,15 @@
       <div id="progressPagination" class="pagination"></div>
     </div>
 
-    <!-- Closed Emails Analytics Page -->
+    <!-- Closed Threads Analytics Page -->
     <div id="closedDetailsPage" class="details-page">
       <div class="top-actions">
         <button class="back-button" onclick="showMainPage()">← Back to Dashboard</button>
       </div>
       <div class="details-header">
         <div class="details-header-text">
-          <h2>Closed Emails Analytics</h2>
-          <p>Historical view of resolved escalations</p>
+          <h2>Closed Threads Analytics</h2>
+          <p>Historical view of resolved escalation threads</p>
         </div>
       </div>
       
@@ -610,7 +610,7 @@
 
     let globalOpenEmails = [];
     let globalProgressEmails = [];
-    let globalClosedEmails = [];
+    let globalClosedThreads = [];
     let globalFormData = [];
     let filteredClosedEmails = [];
     let currentPage = { open: 1, progress: 1, closed: 1 };
@@ -650,19 +650,12 @@
 
     function extractNameFromEmail(email) {
       if (!email || typeof email !== 'string') return '';
-  
-    // Extract the part before @
       const username = email.split('@')[0];
-  
-    // Replace dots and underscores with spaces
       const name = username.replace(/[._]/g, ' ');
-  
-    // Capitalize first letter of each word
       return name.split(' ')
         .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
         .join(' ');
     }
-
 
     async function loadDashboard() {
       try {
@@ -674,40 +667,97 @@
           fetchCSV(CSV_FORM),
           fetchCSV(CSV_CLOSE)
         ]);
+        
         globalFormData = form;
 
-        const formMsgIds = new Set(form.map(r => r.msgId?.trim()).filter(Boolean));
-        const closedMsgIds = new Set(closed.map(r => r.msgId?.trim()).filter(Boolean));
-
-        globalOpenEmails = internal.filter(r => {
-          const msgId = r.msgId?.trim();
-          return msgId && !formMsgIds.has(msgId);
+        // Build thread closure map with timestamps
+        const threadClosureMap = new Map();
+        closed.forEach(c => {
+          const threadId = c.threadId?.trim();
+          const closureTime = c.Timestamp ? new Date(c.Timestamp) : null;
+          
+          if (threadId && closureTime) {
+            if (!threadClosureMap.has(threadId) || closureTime > threadClosureMap.get(threadId).time) {
+              threadClosureMap.set(threadId, {
+                time: closureTime,
+                data: c
+              });
+            }
+          }
         });
 
-        globalProgressEmails = internal.filter(r => {
-          const msgId = r.msgId?.trim();
-          return msgId && formMsgIds.has(msgId) && !closedMsgIds.has(msgId);
+        // Build thread-level form tracking
+        const threadInProgressSet = new Set();
+        form.forEach(f => {
+          const threadId = f.threadId?.trim();
+          if (threadId) {
+            threadInProgressSet.add(threadId);
+          }
         });
 
-        // Process closed emails with additional analytics
-        globalClosedEmails = closed.map(c => {
-          const msgId = c.msgId?.trim();
-          const internalEmail = internal.find(i => i.msgId?.trim() === msgId);
+        // Categorize emails based on thread status and timestamp
+        globalOpenEmails = [];
+        globalProgressEmails = [];
+        const closedEmailsMap = new Map();
+
+        internal.forEach(email => {
+          const threadId = email.threadId?.trim();
+          const msgId = email.msgId?.trim();
+          const emailDate = email.date ? new Date(email.date) : null;
+
+          if (!threadId || !msgId) return;
+
+          const threadClosureInfo = threadClosureMap.get(threadId);
+          const threadClosureTime = threadClosureInfo?.time;
+          const isThreadInProgress = threadInProgressSet.has(threadId);
+
+          // Thread is closed if closure exists AND email was received BEFORE closure time
+          const isEmailClosed = threadClosureTime && emailDate && emailDate < threadClosureTime;
+
+          if (isEmailClosed) {
+            // Email belongs to closed thread and was sent before closure
+            if (!closedEmailsMap.has(threadId)) {
+              closedEmailsMap.set(threadId, []);
+            }
+            closedEmailsMap.get(threadId).push(email);
+          } else if (isThreadInProgress || (threadClosureTime && emailDate && emailDate >= threadClosureTime)) {
+            // Thread is in progress OR email came after thread closure (reopen case)
+            globalProgressEmails.push(email);
+          } else {
+            // Thread has never been picked up
+            globalOpenEmails.push(email);
+          }
+        });
+
+        // Process closed threads for analytics
+        globalClosedThreads = Array.from(closedEmailsMap.entries()).map(([threadId, emails]) => {
+          const threadClosureInfo = threadClosureMap.get(threadId);
+          const closureEntry = threadClosureInfo?.data;
+          const sortedEmails = emails.sort((a, b) => new Date(a.date) - new Date(b.date));
+          const firstEmail = sortedEmails[0];
           
           return {
-            ...c,
-            ...internalEmail,
-            ageing: c.Timestamp && internalEmail?.date ? 
-              calculateAgeing(internalEmail.date, c.Timestamp) : 'N/A',
-            month: c.Timestamp ? new Date(c.Timestamp).toLocaleString('default', { month: 'long', year: 'numeric' }) : 'N/A'
+            threadId: threadId,
+            messageCount: emails.length,
+            messages: emails,
+            subject: firstEmail?.subject || '',
+            startDate: firstEmail?.date || '',
+            closureDate: closureEntry?.Timestamp || '',
+            ageing: closureEntry?.Timestamp && firstEmail?.date ? 
+              calculateAgeing(firstEmail.date, closureEntry.Timestamp) : 'N/A',
+            month: closureEntry?.Timestamp ? 
+              new Date(closureEntry.Timestamp).toLocaleString('default', { month: 'long', year: 'numeric' }) : 'N/A',
+            closedBy: closureEntry?.['Action Owner & Timeline'] || closureEntry?.['Closed By'] || 'Unknown',
+            escalationType: closureEntry?.['Escalation Type'] || firstEmail?.['Escalation Type'] || 'Unknown',
+            from: firstEmail?.from || ''
           };
         });
 
-        filteredClosedEmails = [...globalClosedEmails];
+        filteredClosedEmails = [...globalClosedThreads];
 
-        document.getElementById('openCount').innerText = globalOpenEmails.length;
-        document.getElementById('progressCount').innerText = globalProgressEmails.length;
-        document.getElementById('closedCount').innerText = globalClosedEmails.length;
+        document.getElementById('openCount').innerText = [...new Set(globalOpenEmails.map(e => e.threadId))].length;
+        document.getElementById('progressCount').innerText = [...new Set(globalProgressEmails.map(e => e.threadId))].length;
+        document.getElementById('closedCount').innerText = globalClosedThreads.length;
 
         document.getElementById('loading').style.display = 'none';
         document.getElementById('stats').style.display = 'flex';
@@ -723,15 +773,15 @@
 
     function populateFilters() {
       // Populate month filter
-      const months = [...new Set(globalClosedEmails.map(e => e.month))].filter(m => m !== 'N/A').sort();
+      const months = [...new Set(globalClosedThreads.map(e => e.month))].filter(m => m !== 'N/A').sort();
       const monthFilter = document.getElementById('monthFilter');
       monthFilter.innerHTML = '<option value="all">All Months</option>';
       months.forEach(m => {
         monthFilter.innerHTML += `<option value="${m}">${m}</option>`;
       });
 
-      // Populate agent filter (assuming there's a field like 'Action Owner & Timeline' or 'Team Lead')
-      const agents = [...new Set(globalClosedEmails.map(e => e['Action Owner & Timeline'] || e['Team Lead Call Required'] || e['Issue Attributed Team/Individual']).filter(Boolean))].sort();
+      // Populate agent filter
+      const agents = [...new Set(globalClosedThreads.map(e => e.closedBy).filter(Boolean))].sort();
       const agentFilter = document.getElementById('agentFilter');
       agentFilter.innerHTML = '<option value="all">All Agents</option>';
       agents.forEach(a => {
@@ -743,12 +793,9 @@
       const monthFilter = document.getElementById('monthFilter').value;
       const agentFilter = document.getElementById('agentFilter').value;
 
-      filteredClosedEmails = globalClosedEmails.filter(e => {
+      filteredClosedEmails = globalClosedThreads.filter(e => {
         const monthMatch = monthFilter === 'all' || e.month === monthFilter;
-        const agentMatch = agentFilter === 'all' || 
-          e['Action Owner & Timeline'] === agentFilter ||
-          e['Team Lead Call Required'] === agentFilter ||
-          e['Issue Attributed Team/Individual'] === agentFilter;
+        const agentMatch = agentFilter === 'all' || e.closedBy === agentFilter;
         return monthMatch && agentMatch;
       });
 
@@ -756,143 +803,129 @@
       renderClosedAnalytics();
     }
 
-    // Enhanced closed email rendering with analytics
-function renderClosedAnalytics() {
-  // Calculate enhanced statistics
-  const totalClosed = filteredClosedEmails.length;
-  
-  // Average ageing calculation
-  const validAgeings = filteredClosedEmails
-    .map(e => typeof e.ageing === 'number' ? e.ageing : null)
-    .filter(a => a !== null);
-  const avgAgeing = validAgeings.length > 0 
-    ? validAgeings.reduce((sum, age) => sum + age, 0) / validAgeings.length 
-    : 0;
-  
-  // Month analysis
-  const thisMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
-  const thisMonthCount = filteredClosedEmails.filter(e => e.month === thisMonth).length;
-  
-  // Escalation type breakdown
-  const typeBreakdown = {};
-  filteredClosedEmails.forEach(e => {
-    const type = e['Escalation Type'] || 'Unknown';
-    typeBreakdown[type] = (typeBreakdown[type] || 0) + 1;
-  });
-  
-  // Top performer
-  const agentPerformance = {};
-  filteredClosedEmails.forEach(e => {
-    const agent = e['Action Owner & Timeline'] || e['Closed By'] || 'Unknown';
-    agentPerformance[agent] = (agentPerformance[agent] || 0) + 1;
-  });
-  const topAgent = Object.entries(agentPerformance)
-    .sort((a, b) => b[1] - a[1])[0];
-  
-  // Fastest resolution
-  const fastestResolution = Math.min(...validAgeings);
-  
-  // Render enhanced stats cards
-  const statsHtml = `
-    <div class="stat-card">
-      <h3>Total Closed</h3>
-      <div class="value">${totalClosed}</div>
-      <div class="subtext">All filtered escalations</div>
-    </div>
-    <div class="stat-card">
-      <h3>This Month</h3>
-      <div class="value">${thisMonthCount}</div>
-      <div class="subtext">${thisMonth}</div>
-    </div>
-    <div class="stat-card">
-      <h3>Avg Resolution Time</h3>
-      <div class="value">${avgAgeing.toFixed(1)}</div>
-      <div class="subtext">days to close</div>
-    </div>
-    <div class="stat-card">
-      <h3>Fastest Resolution</h3>
-      <div class="value">${fastestResolution}</div>
-      <div class="subtext">days (best case)</div>
-    </div>
-    <div class="stat-card">
-      <h3>Top Performer</h3>
-      <div class="value">${topAgent ? topAgent[1] : 0}</div>
-      <div class="subtext">${topAgent ? topAgent[0] : 'N/A'}</div>
-    </div>
-    <div class="stat-card">
-      <h3>Escalation Types</h3>
-      <div class="value">${Object.keys(typeBreakdown).length}</div>
-      <div class="subtext">unique categories</div>
-    </div>
-  `;
-  document.getElementById('closedStats').innerHTML = statsHtml;
-  
-  // Render table with enhanced columns
-  renderEnhancedClosedTable();
-}
+    function renderClosedAnalytics() {
+      const totalClosed = filteredClosedEmails.length;
+      
+      const validAgeings = filteredClosedEmails
+        .map(e => typeof e.ageing === 'number' ? e.ageing : null)
+        .filter(a => a !== null);
+      const avgAgeing = validAgeings.length > 0 
+        ? validAgeings.reduce((sum, age) => sum + age, 0) / validAgeings.length 
+        : 0;
+      
+      const thisMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+      const thisMonthCount = filteredClosedEmails.filter(e => e.month === thisMonth).length;
+      
+      const typeBreakdown = {};
+      filteredClosedEmails.forEach(e => {
+        const type = e.escalationType || 'Unknown';
+        typeBreakdown[type] = (typeBreakdown[type] || 0) + 1;
+      });
+      
+      const agentPerformance = {};
+      filteredClosedEmails.forEach(e => {
+        const agent = e.closedBy || 'Unknown';
+        agentPerformance[agent] = (agentPerformance[agent] || 0) + 1;
+      });
+      const topAgent = Object.entries(agentPerformance)
+        .sort((a, b) => b[1] - a[1])[0];
+      
+      const fastestResolution = validAgeings.length > 0 ? Math.min(...validAgeings) : 0;
+      
+      const statsHtml = `
+        <div class="stat-card">
+          <h3>Total Closed</h3>
+          <div class="value">${totalClosed}</div>
+          <div class="subtext">All filtered threads</div>
+        </div>
+        <div class="stat-card">
+          <h3>This Month</h3>
+          <div class="value">${thisMonthCount}</div>
+          <div class="subtext">${thisMonth}</div>
+        </div>
+        <div class="stat-card">
+          <h3>Avg Resolution Time</h3>
+          <div class="value">${avgAgeing.toFixed(1)}</div>
+          <div class="subtext">days to close</div>
+        </div>
+        <div class="stat-card">
+          <h3>Fastest Resolution</h3>
+          <div class="value">${fastestResolution}</div>
+          <div class="subtext">days (best case)</div>
+        </div>
+        <div class="stat-card">
+          <h3>Top Performer</h3>
+          <div class="value">${topAgent ? topAgent[1] : 0}</div>
+          <div class="subtext">${topAgent ? topAgent[0] : 'N/A'}</div>
+        </div>
+        <div class="stat-card">
+          <h3>Escalation Types</h3>
+          <div class="value">${Object.keys(typeBreakdown).length}</div>
+          <div class="subtext">unique categories</div>
+        </div>
+      `;
+      document.getElementById('closedStats').innerHTML = statsHtml;
+      
+      renderEnhancedClosedTable();
+    }
 
-function renderEnhancedClosedTable() {
-  const data = filteredClosedEmails;
-  const table = document.getElementById('closedTable');
-  
-  if (!data.length) {
-    table.innerHTML = '<tbody><tr><td colspan="100" class="no-data">No closed emails match your filters</td></tr></tbody>';
-    return;
-  }
-  
-  const totalPages = Math.ceil(data.length / pageSize.closed);
-  const startIdx = (currentPage.closed - 1) * pageSize.closed;
-  const endIdx = startIdx + pageSize.closed;
-  const pageData = data.slice(startIdx, endIdx);
-  
-  // Define priority columns for closed emails
-  const priorityColumns = [
-    'msgId',
-    'threadId',
-    'subject',
-    'Escalation Type',
-    'date',
-    'Timestamp',
-    'ageing',
-    'month',
-    'Action Owner & Timeline',
-    'Team Lead Call Required',
-    'Issue Attributed Team/Individual',
-    'Priority',
-    'from'
-  ];
-  
-  // Build table header
-  let html = '<thead><tr>';
-  priorityColumns.forEach(col => {
-    const displayName = col === 'msgId' ? 'Message ID' 
-      : col === 'threadId' ? 'Thread ID'
-      : col === 'ageing' ? 'Ageing (Days)'
-      : col === 'date' ? 'Received Date'
-      : col === 'Timestamp' ? 'Closed Date'
-      : col === 'month' ? 'Month Closed'
-      : col;
-    html += `<th>${displayName}</th>`;
-  });
-  html += '</tr></thead><tbody>';
-  
-  // Build table rows
-  pageData.forEach(row => {
-    html += '<tr>';
-    priorityColumns.forEach(col => {
-      const value = row[col] !== undefined ? row[col] : '';
-      html += `<td title="${value}">${value}</td>`;
-    });
-    html += '</tr>';
-  });
-  
-  html += '</tbody>';
-  table.innerHTML = html;
-  
-  // Render pagination
-  renderPagination('closed', currentPage.closed, totalPages, data.length);
-}
-
+    function renderEnhancedClosedTable() {
+      const data = filteredClosedEmails;
+      const table = document.getElementById('closedTable');
+      
+      if (!data.length) {
+        table.innerHTML = '<tbody><tr><td colspan="100" class="no-data">No closed threads match your filters</td></tr></tbody>';
+        return;
+      }
+      
+      const totalPages = Math.ceil(data.length / pageSize.closed);
+      const startIdx = (currentPage.closed - 1) * pageSize.closed;
+      const endIdx = startIdx + pageSize.closed;
+      const pageData = data.slice(startIdx, endIdx);
+      
+      const priorityColumns = [
+        'threadId',
+        'subject',
+        'messageCount',
+        'escalationType',
+        'startDate',
+        'closureDate',
+        'ageing',
+        'month',
+        'closedBy',
+        'from'
+      ];
+      
+      let html = '<thead><tr>';
+      priorityColumns.forEach(col => {
+        const displayName = col === 'threadId' ? 'Thread ID'
+          : col === 'messageCount' ? 'Messages'
+          : col === 'escalationType' ? 'Type'
+          : col === 'startDate' ? 'Start Date'
+          : col === 'closureDate' ? 'Closed Date'
+          : col === 'ageing' ? 'Days'
+          : col === 'month' ? 'Month'
+          : col === 'closedBy' ? 'Closed By'
+          : col === 'from' ? 'Customer'
+          : col;
+        html += `<th>${displayName}</th>`;
+      });
+      html += '</tr></thead><tbody>';
+      
+      pageData.forEach(row => {
+        html += '<tr>';
+        priorityColumns.forEach(col => {
+          const value = row[col] !== undefined ? row[col] : '';
+          html += `<td title="${value}">${value}</td>`;
+        });
+        html += '</tr>';
+      });
+      
+      html += '</tbody>';
+      table.innerHTML = html;
+      
+      renderPagination('closed', currentPage.closed, totalPages, data.length);
+    }
 
     function showDetailsPage(type) {
       document.getElementById('mainPage').style.display = 'none';
@@ -938,92 +971,93 @@ function renderEnhancedClosedTable() {
     }
 
     function enrichProgressData() {
-      return globalProgressEmails.map(email => {
-      const msgId = email.msgId?.trim();
-    
-    // Find matching form entry
-      const formEntry = globalFormData.find(f => f.msgId?.trim() === msgId);
-    
-    // Extract owner name from email address in form data
-    // Assuming the email field in CSV_FORM is named 'Email Address' or similar
-      const ownerEmail = formEntry?.['Email Address'] || formEntry?.['email'] || formEntry?.['Email'] || '';
-      const ownerName = extractNameFromEmail(ownerEmail);
-    
-    // Return enriched data with specific fields
-      return {
-        msgId: email.msgId || '',
-        threadId: email.threadId || '',
-        Owner: ownerName || ownerEmail, // Show name, fallback to email
-        date: email.date || '',
-        subject: email.subject || '',
-        body: email.body || ''
-      };
-    });
-  }
+      const threadMap = new Map();
+      
+      globalProgressEmails.forEach(email => {
+        const threadId = email.threadId?.trim();
+        if (!threadMap.has(threadId)) {
+          threadMap.set(threadId, []);
+        }
+        threadMap.get(threadId).push(email);
+      });
+      
+      return Array.from(threadMap.entries()).map(([threadId, emails]) => {
+        const sortedEmails = emails.sort((a, b) => new Date(a.date) - new Date(b.date));
+        const firstEmail = sortedEmails[0];
+        const latestEmail = sortedEmails[sortedEmails.length - 1];
+        const formEntry = globalFormData.find(f => f.threadId?.trim() === threadId);
+        const ownerEmail = formEntry?.['Email Address'] || formEntry?.['email'] || formEntry?.['Email'] || '';
+        const ownerName = extractNameFromEmail(ownerEmail);
+        
+        return {
+          threadId: threadId,
+          messageCount: emails.length,
+          Owner: ownerName || ownerEmail,
+          date: firstEmail?.date || '',
+          subject: firstEmail?.subject || '',
+          latestMessage: latestEmail?.body?.substring(0, 100) + '...' || ''
+        };
+      });
+    }
 
     function renderTable(type) {
-  const tableId = type + 'Table';
-  const paginationId = type + 'Pagination';
-  let data;
-  let displayColumns = [];
-  
-  if (type === 'open') {
-    data = globalOpenEmails;
-    // Show only specific columns for Open emails
-    displayColumns = ['msgId', 'threadId', 'subject', 'date', 'body', 'AI - sentiment'];
-  } else if (type === 'progress') {
-    // For progress, we need to enrich data with owner info from CSV_FORM
-    data = enrichProgressData();
-    displayColumns = ['msgId', 'threadId', 'Owner', 'date', 'subject', 'body'];
-  } else if (type === 'closed') {
-    data = filteredClosedEmails;
-  }
-  
-  const table = document.getElementById(tableId);
-  const paginationContainer = document.getElementById(paginationId);
-  
-  if (!data.length) {
-    table.innerHTML = '<tbody><tr><td colspan="100" class="no-data">No emails found</td></tr></tbody>';
-    paginationContainer.innerHTML = '';
-    return;
-  }
+      const tableId = type + 'Table';
+      const paginationId = type + 'Pagination';
+      let data;
+      let displayColumns = [];
+      
+      if (type === 'open') {
+        data = globalOpenEmails;
+        displayColumns = ['msgId', 'threadId', 'subject', 'date', 'body', 'AI - sentiment'];
+      } else if (type === 'progress') {
+        data = enrichProgressData();
+        displayColumns = ['threadId', 'messageCount', 'Owner', 'date', 'subject', 'latestMessage'];
+      } else if (type === 'closed') {
+        data = filteredClosedEmails;
+      }
+      
+      const table = document.getElementById(tableId);
+      const paginationContainer = document.getElementById(paginationId);
+      
+      if (!data.length) {
+        table.innerHTML = '<tbody><tr><td colspan="100" class="no-data">No emails found</td></tr></tbody>';
+        paginationContainer.innerHTML = '';
+        return;
+      }
 
-  const totalPages = Math.ceil(data.length / pageSize[type]);
-  const startIdx = (currentPage[type] - 1) * pageSize[type];
-  const endIdx = startIdx + pageSize[type];
-  const pageData = data.slice(startIdx, endIdx);
+      const totalPages = Math.ceil(data.length / pageSize[type]);
+      const startIdx = (currentPage[type] - 1) * pageSize[type];
+      const endIdx = startIdx + pageSize[type];
+      const pageData = data.slice(startIdx, endIdx);
 
-  // Determine headers
-  const headers = displayColumns.length > 0 ? displayColumns : Object.keys(data[0]);
-  
-  // Render table
-  let html = '<thead><tr>';
-  headers.forEach(header => {
-    html += `<th>${header}</th>`;
-  });
-  html += '</tr></thead><tbody>';
+      const headers = displayColumns.length > 0 ? displayColumns : Object.keys(data[0]);
+      
+      let html = '<thead><tr>';
+      headers.forEach(header => {
+        html += `<th>${header}</th>`;
+      });
+      html += '</tr></thead><tbody>';
 
-  pageData.forEach(row => {
-    html += '<tr>';
-    headers.forEach(header => {
-      const value = row[header] || '';
-      html += `<td title="${value}">${value}</td>`;
-    });
-    html += '</tr>';
-  });
+      pageData.forEach(row => {
+        html += '<tr>';
+        headers.forEach(header => {
+          const value = row[header] || '';
+          html += `<td title="${value}">${value}</td>`;
+        });
+        html += '</tr>';
+      });
 
-  html += '</tbody>';
-  table.innerHTML = html;
+      html += '</tbody>';
+      table.innerHTML = html;
 
-  // Render pagination
-  renderPagination(type, currentPage[type], totalPages, data.length);
-}
+      renderPagination(type, currentPage[type], totalPages, data.length);
+    }
 
     function renderPagination(type, current, total, totalItems) {
       const container = document.getElementById(type + 'Pagination');
       
       if (total <= 1) {
-        container.innerHTML = `<div class="pagination-info">Showing all ${totalItems} emails</div>`;
+        container.innerHTML = `<div class="pagination-info">Showing all ${totalItems} items</div>`;
         return;
       }
 
@@ -1035,14 +1069,12 @@ function renderEnhancedClosedTable() {
           ← Previous
         </button>
         <div class="pagination-info">
-          Showing ${startItem}-${endItem} of ${totalItems} emails
+          Showing ${startItem}-${endItem} of ${totalItems} items
         </div>
       `;
 
-      // Page numbers
       html += '<div class="pagination-pages">';
       
-      // Always show first page
       if (current > 3) {
         html += `<button onclick="changePage('${type}', 1)">1</button>`;
         if (current > 4) {
@@ -1050,12 +1082,10 @@ function renderEnhancedClosedTable() {
         }
       }
 
-      // Show pages around current
       for (let i = Math.max(1, current - 2); i <= Math.min(total, current + 2); i++) {
         html += `<button onclick="changePage('${type}', ${i})" ${i === current ? 'class="active"' : ''}>${i}</button>`;
       }
 
-      // Always show last page
       if (current < total - 2) {
         if (current < total - 3) {
           html += `<button disabled>...</button>`;
@@ -1085,6 +1115,3 @@ function renderEnhancedClosedTable() {
   </script>
 </body>
 </html>
-
-
-

@@ -661,7 +661,7 @@
       try {
         document.getElementById('loading').style.display = 'block';
         document.getElementById('stats').style.display = 'none';
-
+    
         const [internal, form, closed] = await Promise.all([
           fetchCSV(CSV_INTERNAL),
           fetchCSV(CSV_FORM),
@@ -669,13 +669,18 @@
         ]);
         
         globalFormData = form;
-
-        // Filter form entries to only include NEGATIVE sentiment
+    
+        // Separate positive and negative sentiment forms
         const negativeSentimentForm = form.filter(f => {
           const sentiment = f.sentiment || f.Sentiment || f['Sentiment'] || '';
           return sentiment.toLowerCase().trim() === 'negative';
         });
-
+    
+        const positiveSentimentForm = form.filter(f => {
+          const sentiment = f.sentiment || f.Sentiment || f['Sentiment'] || '';
+          return sentiment.toLowerCase().trim() === 'positive';
+        });
+    
         // Build thread closure map with timestamps
         const threadClosureMap = new Map();
         closed.forEach(c => {
@@ -691,8 +696,8 @@
             }
           }
         });
-
-        // Build thread-level form tracking (ONLY NEGATIVE SENTIMENT)
+    
+        // Build thread tracking sets
         const threadInProgressSet = new Set();
         negativeSentimentForm.forEach(f => {
           const threadId = f.threadId?.trim();
@@ -700,42 +705,53 @@
             threadInProgressSet.add(threadId);
           }
         });
-
+    
+        // Track dismissed threads (positive sentiment)
+        const threadDismissedSet = new Set();
+        positiveSentimentForm.forEach(f => {
+          const threadId = f.threadId?.trim();
+          if (threadId) {
+            threadDismissedSet.add(threadId);
+          }
+        });
+    
         // Categorize emails based on thread status and timestamp
         globalOpenEmails = [];
         globalProgressEmails = [];
         const closedEmailsMap = new Map();
-
+    
         internal.forEach(email => {
           const threadId = email.threadId?.trim();
           const msgId = email.msgId?.trim();
           const emailDate = email.date ? new Date(email.date) : null;
-
+    
           if (!threadId || !msgId) return;
-
+    
           const threadClosureInfo = threadClosureMap.get(threadId);
           const threadClosureTime = threadClosureInfo?.time;
           const isThreadInProgress = threadInProgressSet.has(threadId);
-
+          const isThreadDismissed = threadDismissedSet.has(threadId);
+    
           // Thread is closed if closure exists AND email was received BEFORE closure time
           const isEmailClosed = threadClosureTime && emailDate && emailDate < threadClosureTime;
-
+    
           if (isEmailClosed) {
-            // Email belongs to closed thread and was sent before closure
+            // Email belongs to closed thread
             if (!closedEmailsMap.has(threadId)) {
               closedEmailsMap.set(threadId, []);
             }
             closedEmailsMap.get(threadId).push(email);
           } else if (isThreadInProgress || (threadClosureTime && emailDate && emailDate >= threadClosureTime)) {
-            // Thread is in progress OR email came after thread closure (reopen case)
-            // ONLY if sentiment is NEGATIVE
+            // Thread is in progress (NEGATIVE sentiment) OR reopened
             globalProgressEmails.push(email);
-          } else {
-            // Thread has never been picked up
+          } else if (!isThreadDismissed) {
+            // Thread is NOT dismissed (no positive sentiment form) = stays in Open
+            // If positive sentiment form exists, thread is filtered out completely
             globalOpenEmails.push(email);
           }
+          // Note: If isThreadDismissed is true, email is not added to any bucket (filtered out)
         });
-
+    
         // Process closed threads for analytics
         globalClosedThreads = Array.from(closedEmailsMap.entries()).map(([threadId, emails]) => {
           const threadClosureInfo = threadClosureMap.get(threadId);
@@ -758,18 +774,18 @@
             from: firstEmail?.from || ''
           };
         });
-
+    
         filteredClosedEmails = [...globalClosedThreads];
-
+    
         document.getElementById('openCount').innerText = [...new Set(globalOpenEmails.map(e => e.threadId))].length;
         document.getElementById('progressCount').innerText = [...new Set(globalProgressEmails.map(e => e.threadId))].length;
         document.getElementById('closedCount').innerText = globalClosedThreads.length;
-
+    
         document.getElementById('loading').style.display = 'none';
         document.getElementById('stats').style.display = 'flex';
-
+    
         populateFilters();
-
+    
       } catch (error) {
         console.error('Error loading dashboard:', error);
         document.getElementById('loading').innerHTML = 
@@ -1116,3 +1132,4 @@
   </script>
 </body>
 </html>
+

@@ -1151,7 +1151,8 @@
           subject: email?.subject || '',
           from: email?.from || '',
           body: email?.body || '',
-          ownerEmail: formEntry['Email Address'] || ''
+          ownerEmail: formEntry['Email Address'] || '',
+          Comments: formEntry['Comments'] || formEntry['comments'] || ''
         };
       });
 
@@ -1173,7 +1174,7 @@
       const endIdx = startIdx + pageSize.sentiment;
       const pageData = data.slice(startIdx, endIdx);
       
-      const columns = ['threadId', 'sentiment', 'emailDate', 'subject', 'from', 'body', 'ownerEmail'];
+      const columns = ['threadId', 'sentiment', 'emailDate', 'subject', 'from', 'body', 'ownerEmail', 'Comments'];
       
       let html = '<thead><tr>';
       columns.forEach(col => html += `<th>${col}</th>`);
@@ -1265,6 +1266,7 @@
         const formEntry = globalFormData.find(f => f.threadId?.trim() === threadId);
         const ownerEmail = formEntry?.['Email Address'] || formEntry?.['email'] || formEntry?.['Email'] || '';
         const ownerName = extractNameFromEmail(ownerEmail);
+        const comments = formEntry?.['Comments'] || formEntry?.['comments'] || '';
         
         return {
           threadId: threadId,
@@ -1272,7 +1274,8 @@
           Owner: ownerName || ownerEmail,
           date: firstEmail?.date || '',
           subject: firstEmail?.subject || '',
-          latestMessage: latestEmail?.body?.substring(0, 100) + '...' || ''
+          latestMessage: latestEmail?.body?.substring(0, 100) + '...' || '',
+          Comments: comments
         };
       });
     }
@@ -1285,10 +1288,10 @@
       
       if (type === 'open') {
         data = globalOpenEmails;
-        displayColumns = ['msgId', 'threadId', 'subject', 'date', 'body', 'AI - sentiment'];
+        displayColumns = ['from', 'threadId', 'subject', 'date', 'body', 'AI - sentiment'];
       } else if (type === 'progress') {
         data = enrichProgressData();
-        displayColumns = ['threadId', 'messageCount', 'Owner', 'date', 'subject', 'latestMessage'];
+        displayColumns = ['threadId', 'messageCount', 'Owner', 'date', 'subject', 'latestMessage','Comments'];
       }
       
       const table = document.getElementById(tableId);
@@ -1395,3 +1398,4 @@
   </script>
 </body>
 </html>
+

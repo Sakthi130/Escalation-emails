@@ -6,6 +6,7 @@
   <title>Escalation Email Dashboard</title>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     * {
       margin: 0;
@@ -77,6 +78,14 @@
     .counter-box.closed {
       border-top: 4px solid #10b981;
     }
+
+    .counter-box.positive {
+      border-top: 4px solid #10b981;
+    }
+
+    .counter-box.negative {
+      border-top: 4px solid #ef4444;
+    }
     
     .count {
       font-size: 4rem;
@@ -104,6 +113,20 @@
     
     .counter-box.closed .count {
       background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .counter-box.positive .count {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .counter-box.negative .count {
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
@@ -156,7 +179,7 @@
       gap: 15px;
     }
     
-    .back-button, .form-button {
+    .back-button, .form-button, .download-button {
       display: inline-block;
       color: white;
       padding: 12px 30px;
@@ -194,6 +217,15 @@
     
     .form-button.closure:hover {
       background: #d97706;
+    }
+
+    .download-button {
+      background: #8b5cf6;
+    }
+
+    .download-button:hover {
+      background: #7c3aed;
+      transform: translateY(-2px);
     }
     
     .details-header {
@@ -488,6 +520,14 @@
           <div class="count" id="closedCount">0</div>
           <div class="label">Closed Threads</div>
         </div>
+        <div class="counter-box positive" id="positiveBox">
+          <div class="count" id="positiveCount">0</div>
+          <div class="label">Positive Sentiment</div>
+        </div>
+        <div class="counter-box negative" id="negativeBox">
+          <div class="count" id="negativeCount">0</div>
+          <div class="label">Negative Sentiment</div>
+        </div>
       </div>
     </div>
 
@@ -559,6 +599,7 @@
     <div id="closedDetailsPage" class="details-page">
       <div class="top-actions">
         <button class="back-button" onclick="showMainPage()">← Back to Dashboard</button>
+        <button class="download-button" onclick="downloadExcel()">📥 Download Excel</button>
       </div>
       <div class="details-header">
         <div class="details-header-text">
@@ -567,7 +608,7 @@
         </div>
       </div>
       
-      <!-- Statistics Cards -->
+      <!-- Statistics Cards (Only 3) -->
       <div class="stats-cards" id="closedStats"></div>
       
       <!-- Filters -->
@@ -575,6 +616,11 @@
         <label>Filter by Month:</label>
         <select id="monthFilter" onchange="filterClosedData()">
           <option value="all">All Months</option>
+        </select>
+        
+        <label>Filter by Destination:</label>
+        <select id="destinationFilter" onchange="filterClosedData()">
+          <option value="all">All Destinations</option>
         </select>
         
         <label>Filter by Agent:</label>
@@ -599,22 +645,61 @@
       </div>
       <div id="closedPagination" class="pagination"></div>
     </div>
+
+    <!-- Sentiment Details Pages -->
+    <div id="sentimentDetailsPage" class="details-page">
+      <div class="top-actions">
+        <button class="back-button" onclick="showMainPage()">← Back to Dashboard</button>
+      </div>
+      <div class="details-header">
+        <div class="details-header-text">
+          <h2 id="sentimentTitle">Sentiment Details</h2>
+          <p id="sentimentSubtitle">Detailed view of sentiment-based emails</p>
+        </div>
+      </div>
+
+      <!-- Sentiment Month Filter -->
+      <div class="filters">
+        <label>Filter by Month (Email Date):</label>
+        <select id="sentimentMonthFilter" onchange="filterSentimentData()">
+          <option value="all">All Months</option>
+        </select>
+        
+        <label>Show:</label>
+        <select id="sentimentPageSize" onchange="changePageSize('sentiment', this.value)">
+          <option value="10">10</option>
+          <option value="20" selected>20</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+        <span>per page</span>
+      </div>
+      
+      <div class="table-wrapper">
+        <div class="table-container">
+          <table id="sentimentTable"></table>
+        </div>
+      </div>
+      <div id="sentimentPagination" class="pagination"></div>
+    </div>
   </div>
 
   <script>
     const CSV_INTERNAL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPVg1SHavBi-x057E5EurZKxohmfAtQx7EXvcK509VHQF6zzjDr3JjbJLH7lH2Sugo9jd61F0PI2jl/pub?gid=1394291922&single=true&output=csv";
     const CSV_FORM = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPVg1SHavBi-x057E5EurZKxohmfAtQx7EXvcK509VHQF6zzjDr3JjbJLH7lH2Sugo9jd61F0PI2jl/pub?gid=88127589&single=true&output=csv";
     const CSV_CLOSE = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPVg1SHavBi-x057E5EurZKxohmfAtQx7EXvcK509VHQF6zzjDr3JjbJLH7lH2Sugo9jd61F0PI2jl/pub?gid=1713040682&single=true&output=csv";
-    const FORM_INPROGRESS = "https://forms.gle/kZpcF9oGzkyaqZAn8";
-    const FORM_CLOSURE = "https://forms.gle/2SKJFFmus6c77rqm6";
 
     let globalOpenEmails = [];
     let globalProgressEmails = [];
     let globalClosedThreads = [];
     let globalFormData = [];
+    let globalInternalData = [];
+    let globalClosedData = [];
     let filteredClosedEmails = [];
-    let currentPage = { open: 1, progress: 1, closed: 1 };
-    let pageSize = { open: 20, progress: 20, closed: 20 };
+    let filteredSentimentData = [];
+    let currentSentimentType = '';
+    let currentPage = { open: 1, progress: 1, closed: 1, sentiment: 1 };
+    let pageSize = { open: 20, progress: 20, closed: 20, sentiment: 20 };
 
     async function fetchCSV(url) {
       try {
@@ -669,19 +754,21 @@
         ]);
         
         globalFormData = form;
+        globalInternalData = internal;
+        globalClosedData = closed;
     
-        // Separate positive and negative sentiment forms
+        // Separate sentiments - including "Not Applicable"
         const negativeSentimentForm = form.filter(f => {
-          const sentiment = f.sentiment || f.Sentiment || f['Sentiment'] || '';
-          return sentiment.toLowerCase().trim() === 'negative';
+          const sentiment = (f.sentiment || f.Sentiment || f['Sentiment'] || '').toLowerCase().trim();
+          return sentiment === 'negative';
         });
     
-        const positiveSentimentForm = form.filter(f => {
-          const sentiment = f.sentiment || f.Sentiment || f['Sentiment'] || '';
-          return sentiment.toLowerCase().trim() === 'positive';
+        const dismissedSentimentForm = form.filter(f => {
+          const sentiment = (f.sentiment || f.Sentiment || f['Sentiment'] || '').toLowerCase().trim();
+          return sentiment === 'positive' || sentiment === 'not applicable';
         });
     
-        // Build thread closure map with timestamps
+        // Build thread closure map
         const threadClosureMap = new Map();
         closed.forEach(c => {
           const threadId = c.threadId?.trim();
@@ -701,21 +788,16 @@
         const threadInProgressSet = new Set();
         negativeSentimentForm.forEach(f => {
           const threadId = f.threadId?.trim();
-          if (threadId) {
-            threadInProgressSet.add(threadId);
-          }
+          if (threadId) threadInProgressSet.add(threadId);
         });
     
-        // Track dismissed threads (positive sentiment)
         const threadDismissedSet = new Set();
-        positiveSentimentForm.forEach(f => {
+        dismissedSentimentForm.forEach(f => {
           const threadId = f.threadId?.trim();
-          if (threadId) {
-            threadDismissedSet.add(threadId);
-          }
+          if (threadId) threadDismissedSet.add(threadId);
         });
     
-        // Categorize emails based on thread status and timestamp
+        // Categorize emails
         globalOpenEmails = [];
         globalProgressEmails = [];
         const closedEmailsMap = new Map();
@@ -731,28 +813,19 @@
           const threadClosureTime = threadClosureInfo?.time;
           const isThreadInProgress = threadInProgressSet.has(threadId);
           const isThreadDismissed = threadDismissedSet.has(threadId);
-    
-          // Thread is closed if closure exists AND email was received BEFORE closure time
           const isEmailClosed = threadClosureTime && emailDate && emailDate < threadClosureTime;
     
           if (isEmailClosed) {
-            // Email belongs to closed thread
-            if (!closedEmailsMap.has(threadId)) {
-              closedEmailsMap.set(threadId, []);
-            }
+            if (!closedEmailsMap.has(threadId)) closedEmailsMap.set(threadId, []);
             closedEmailsMap.get(threadId).push(email);
           } else if (isThreadInProgress || (threadClosureTime && emailDate && emailDate >= threadClosureTime)) {
-            // Thread is in progress (NEGATIVE sentiment) OR reopened
             globalProgressEmails.push(email);
           } else if (!isThreadDismissed) {
-            // Thread is NOT dismissed (no positive sentiment form) = stays in Open
-            // If positive sentiment form exists, thread is filtered out completely
             globalOpenEmails.push(email);
           }
-          // Note: If isThreadDismissed is true, email is not added to any bucket (filtered out)
         });
     
-        // Process closed threads for analytics
+        // Process closed threads with CSV_CLOSE data
         globalClosedThreads = Array.from(closedEmailsMap.entries()).map(([threadId, emails]) => {
           const threadClosureInfo = threadClosureMap.get(threadId);
           const closureEntry = threadClosureInfo?.data;
@@ -761,17 +834,25 @@
           
           return {
             threadId: threadId,
-            messageCount: emails.length,
-            messages: emails,
-            subject: firstEmail?.subject || '',
-            startDate: firstEmail?.date || '',
             closureDate: closureEntry?.Timestamp || '',
+            owner: closureEntry?.['Email Address'] || '',
+            trailId: closureEntry?.['Trail ID'] || '',
+            customerName: closureEntry?.['Customer Name'] || '',
+            destination: closureEntry?.['Destination'] || '',
+            issueSummary: closureEntry?.['Issue Summary'] || '',
+            detailedReason: closureEntry?.['Detailed Reason for the issue/escalation'] || '',
+            issueAttributed: closureEntry?.['Issue Attributed'] || '',
+            teamIndividual: closureEntry?.['Team/Individual'] || '',
+            correctiveActions: closureEntry?.['Immediate Corrective Actions Taken'] || '',
+            customerImpact: closureEntry?.['Customer Impact'] || '',
+            permanentSolution: closureEntry?.['Permanent Solution & Preventive Actions'] || '',
+            productFix: closureEntry?.['Product/Tech Fix Required'] || '',
+            lossIncurred: closureEntry?.['Loss Incurred'] || '',
+            actionOwner: closureEntry?.['Action Owner & Timeline'] || '',
             ageing: closureEntry?.Timestamp && firstEmail?.date ? 
               calculateAgeing(firstEmail.date, closureEntry.Timestamp) : 'N/A',
             month: closureEntry?.Timestamp ? 
-              new Date(closureEntry.Timestamp).toLocaleString('default', { month: 'long', year: 'numeric' }) : 'N/A',
-            closedBy: closureEntry?.['Action Owner & Timeline'] || closureEntry?.['Closed By'] || 'Unknown',
-            from: firstEmail?.from || ''
+              new Date(closureEntry.Timestamp).toLocaleString('default', { month: 'long', year: 'numeric' }) : 'N/A'
           };
         });
     
@@ -780,11 +861,14 @@
         document.getElementById('openCount').innerText = [...new Set(globalOpenEmails.map(e => e.threadId))].length;
         document.getElementById('progressCount').innerText = [...new Set(globalProgressEmails.map(e => e.threadId))].length;
         document.getElementById('closedCount').innerText = globalClosedThreads.length;
+        document.getElementById('positiveCount').innerText = dismissedSentimentForm.length;
+        document.getElementById('negativeCount').innerText = negativeSentimentForm.length;
     
         document.getElementById('loading').style.display = 'none';
         document.getElementById('stats').style.display = 'flex';
     
         populateFilters();
+        populateSentimentMonthFilter();
     
       } catch (error) {
         console.error('Error loading dashboard:', error);
@@ -794,35 +878,69 @@
     }
 
     function populateFilters() {
-      // Populate month filter
+      // Month filter
       const months = [...new Set(globalClosedThreads.map(e => e.month))].filter(m => m !== 'N/A').sort();
       const monthFilter = document.getElementById('monthFilter');
       monthFilter.innerHTML = '<option value="all">All Months</option>';
-      months.forEach(m => {
-        monthFilter.innerHTML += `<option value="${m}">${m}</option>`;
-      });
+      months.forEach(m => monthFilter.innerHTML += `<option value="${m}">${m}</option>`);
 
-      // Populate agent filter
-      const agents = [...new Set(globalClosedThreads.map(e => e.closedBy).filter(Boolean))].sort();
+      // Destination filter
+      const destinations = [...new Set(globalClosedThreads.map(e => e.destination).filter(Boolean))].sort();
+      const destinationFilter = document.getElementById('destinationFilter');
+      destinationFilter.innerHTML = '<option value="all">All Destinations</option>';
+      destinations.forEach(d => destinationFilter.innerHTML += `<option value="${d}">${d}</option>`);
+
+      // Agent filter
+      const agents = [...new Set(globalClosedThreads.map(e => e.owner).filter(Boolean))].sort();
       const agentFilter = document.getElementById('agentFilter');
       agentFilter.innerHTML = '<option value="all">All Agents</option>';
-      agents.forEach(a => {
-        agentFilter.innerHTML += `<option value="${a}">${a}</option>`;
-      });
+      agents.forEach(a => agentFilter.innerHTML += `<option value="${a}">${a}</option>`);
+    }
+
+    function populateSentimentMonthFilter() {
+      const allDates = globalFormData
+        .map(f => {
+          const threadId = f.threadId?.trim();
+          const email = globalInternalData.find(e => e.threadId?.trim() === threadId);
+          return email?.date;
+        })
+        .filter(Boolean)
+        .map(d => new Date(d).toLocaleString('default', { month: 'long', year: 'numeric' }));
+      
+      const months = [...new Set(allDates)].sort();
+      const monthFilter = document.getElementById('sentimentMonthFilter');
+      monthFilter.innerHTML = '<option value="all">All Months</option>';
+      months.forEach(m => monthFilter.innerHTML += `<option value="${m}">${m}</option>`);
     }
 
     function filterClosedData() {
       const monthFilter = document.getElementById('monthFilter').value;
+      const destinationFilter = document.getElementById('destinationFilter').value;
       const agentFilter = document.getElementById('agentFilter').value;
 
       filteredClosedEmails = globalClosedThreads.filter(e => {
         const monthMatch = monthFilter === 'all' || e.month === monthFilter;
-        const agentMatch = agentFilter === 'all' || e.closedBy === agentFilter;
-        return monthMatch && agentMatch;
+        const destMatch = destinationFilter === 'all' || e.destination === destinationFilter;
+        const agentMatch = agentFilter === 'all' || e.owner === agentFilter;
+        return monthMatch && destMatch && agentMatch;
       });
 
       currentPage.closed = 1;
       renderClosedAnalytics();
+    }
+
+    function filterSentimentData() {
+      const monthFilter = document.getElementById('sentimentMonthFilter').value;
+      
+      filteredSentimentData = filteredSentimentData.filter(e => {
+        if (monthFilter === 'all') return true;
+        const emailMonth = e.emailDate ? 
+          new Date(e.emailDate).toLocaleString('default', { month: 'long', year: 'numeric' }) : '';
+        return emailMonth === monthFilter;
+      });
+
+      currentPage.sentiment = 1;
+      renderSentimentTable();
     }
 
     function renderClosedAnalytics() {
@@ -838,28 +956,11 @@
       const thisMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
       const thisMonthCount = filteredClosedEmails.filter(e => e.month === thisMonth).length;
       
-      const agentPerformance = {};
-      filteredClosedEmails.forEach(e => {
-        const agent = e.closedBy || 'Unknown';
-        agentPerformance[agent] = (agentPerformance[agent] || 0) + 1;
-      });
-      const topAgent = Object.entries(agentPerformance)
-        .sort((a, b) => b[1] - a[1])[0];
-      
-      const fastestResolution = validAgeings.length > 0 ? Math.min(...validAgeings) : 0;
-      
-      const totalMessages = filteredClosedEmails.reduce((sum, thread) => sum + thread.messageCount, 0);
-      
       const statsHtml = `
         <div class="stat-card">
           <h3>Total Closed</h3>
           <div class="value">${totalClosed}</div>
           <div class="subtext">Threads resolved</div>
-        </div>
-        <div class="stat-card">
-          <h3>Total Messages</h3>
-          <div class="value">${totalMessages}</div>
-          <div class="subtext">Across all threads</div>
         </div>
         <div class="stat-card">
           <h3>This Month</h3>
@@ -870,16 +971,6 @@
           <h3>Avg Resolution Time</h3>
           <div class="value">${avgAgeing.toFixed(1)}</div>
           <div class="subtext">days to close</div>
-        </div>
-        <div class="stat-card">
-          <h3>Fastest Resolution</h3>
-          <div class="value">${fastestResolution}</div>
-          <div class="subtext">days (best case)</div>
-        </div>
-        <div class="stat-card">
-          <h3>Top Performer</h3>
-          <div class="value">${topAgent ? topAgent[1] : 0}</div>
-          <div class="subtext">${topAgent ? topAgent[0] : 'N/A'}</div>
         </div>
       `;
       document.getElementById('closedStats').innerHTML = statsHtml;
@@ -901,38 +992,32 @@
       const endIdx = startIdx + pageSize.closed;
       const pageData = data.slice(startIdx, endIdx);
       
-      // REMOVED 'escalationType' from columns
-      const priorityColumns = [
-        'threadId',
-        'subject',
-        'messageCount',
-        'startDate',
-        'closureDate',
-        'ageing',
-        'month',
-        'closedBy',
-        'from'
+      const columns = [
+        { key: 'closureDate', name: 'Closed Date' },
+        { key: 'owner', name: 'Owner' },
+        { key: 'trailId', name: 'Trail ID' },
+        { key: 'customerName', name: 'Customer Name' },
+        { key: 'destination', name: 'Destination' },
+        { key: 'issueSummary', name: 'Issue Summary' },
+        { key: 'detailedReason', name: 'Detailed Reason' },
+        { key: 'issueAttributed', name: 'Issue Attributed' },
+        { key: 'teamIndividual', name: 'Team/Individual' },
+        { key: 'correctiveActions', name: 'Corrective Actions' },
+        { key: 'customerImpact', name: 'Customer Impact' },
+        { key: 'permanentSolution', name: 'Permanent Solution' },
+        { key: 'productFix', name: 'Product/Tech Fix' },
+        { key: 'lossIncurred', name: 'Loss Incurred' },
+        { key: 'actionOwner', name: 'Action Owner & Timeline' }
       ];
       
       let html = '<thead><tr>';
-      priorityColumns.forEach(col => {
-        const displayName = col === 'threadId' ? 'Thread ID'
-          : col === 'messageCount' ? 'Messages'
-          : col === 'startDate' ? 'Start Date'
-          : col === 'closureDate' ? 'Closed Date'
-          : col === 'ageing' ? 'Days'
-          : col === 'month' ? 'Month'
-          : col === 'closedBy' ? 'Closed By'
-          : col === 'from' ? 'Customer'
-          : col;
-        html += `<th>${displayName}</th>`;
-      });
+      columns.forEach(col => html += `<th>${col.name}</th>`);
       html += '</tr></thead><tbody>';
       
       pageData.forEach(row => {
         html += '<tr>';
-        priorityColumns.forEach(col => {
-          const value = row[col] !== undefined ? row[col] : '';
+        columns.forEach(col => {
+          const value = row[col.key] || '';
           html += `<td title="${value}">${value}</td>`;
         });
         html += '</tr>';
@@ -942,6 +1027,103 @@
       table.innerHTML = html;
       
       renderPagination('closed', currentPage.closed, totalPages, data.length);
+    }
+
+    function downloadExcel() {
+      const data = filteredClosedEmails.map(row => ({
+        'Closed Date': row.closureDate,
+        'Owner': row.owner,
+        'Trail ID': row.trailId,
+        'Customer Name': row.customerName,
+        'Destination': row.destination,
+        'Issue Summary': row.issueSummary,
+        'Detailed Reason': row.detailedReason,
+        'Issue Attributed': row.issueAttributed,
+        'Team/Individual': row.teamIndividual,
+        'Corrective Actions': row.correctiveActions,
+        'Customer Impact': row.customerImpact,
+        'Permanent Solution': row.permanentSolution,
+        'Product/Tech Fix': row.productFix,
+        'Loss Incurred': row.lossIncurred,
+        'Action Owner & Timeline': row.actionOwner
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Closed Threads');
+      XLSX.writeFile(wb, `Closed_Threads_${new Date().toISOString().split('T')[0]}.xlsx`);
+    }
+
+    function showSentimentDetails(type) {
+      document.getElementById('mainPage').style.display = 'none';
+      document.getElementById('sentimentDetailsPage').classList.add('active');
+      currentSentimentType = type;
+      
+      document.getElementById('sentimentTitle').innerText = 
+        type === 'positive' ? 'Positive Sentiment Emails' : 'Negative Sentiment Emails';
+      document.getElementById('sentimentSubtitle').innerText = 
+        `Detailed view of ${type} sentiment emails`;
+
+      const sentimentData = globalFormData.filter(f => {
+        const sentiment = (f.sentiment || f.Sentiment || f['Sentiment'] || '').toLowerCase().trim();
+        if (type === 'positive') {
+          return sentiment === 'positive' || sentiment === 'not applicable';
+        }
+        return sentiment === 'negative';
+      });
+
+      filteredSentimentData = sentimentData.map(formEntry => {
+        const threadId = formEntry.threadId?.trim();
+        const email = globalInternalData.find(e => e.threadId?.trim() === threadId);
+        
+        return {
+          threadId: threadId,
+          sentiment: formEntry.sentiment || formEntry.Sentiment || formEntry['Sentiment'] || '',
+          emailDate: email?.date || '',
+          subject: email?.subject || '',
+          from: email?.from || '',
+          body: email?.body || '',
+          ownerEmail: formEntry['Email Address'] || ''
+        };
+      });
+
+      currentPage.sentiment = 1;
+      renderSentimentTable();
+    }
+
+    function renderSentimentTable() {
+      const data = filteredSentimentData;
+      const table = document.getElementById('sentimentTable');
+      
+      if (!data.length) {
+        table.innerHTML = '<tbody><tr><td colspan="100" class="no-data">No sentiment data found</td></tr></tbody>';
+        return;
+      }
+      
+      const totalPages = Math.ceil(data.length / pageSize.sentiment);
+      const startIdx = (currentPage.sentiment - 1) * pageSize.sentiment;
+      const endIdx = startIdx + pageSize.sentiment;
+      const pageData = data.slice(startIdx, endIdx);
+      
+      const columns = ['threadId', 'sentiment', 'emailDate', 'subject', 'from', 'body', 'ownerEmail'];
+      
+      let html = '<thead><tr>';
+      columns.forEach(col => html += `<th>${col}</th>`);
+      html += '</tr></thead><tbody>';
+      
+      pageData.forEach(row => {
+        html += '<tr>';
+        columns.forEach(col => {
+          const value = row[col] || '';
+          html += `<td title="${value}">${value}</td>`;
+        });
+        html += '</tr>';
+      });
+      
+      html += '</tbody>';
+      table.innerHTML = html;
+      
+      renderPagination('sentiment', currentPage.sentiment, totalPages, data.length);
     }
 
     function showDetailsPage(type) {
@@ -965,6 +1147,7 @@
       document.getElementById('openDetailsPage').classList.remove('active');
       document.getElementById('progressDetailsPage').classList.remove('active');
       document.getElementById('closedDetailsPage').classList.remove('active');
+      document.getElementById('sentimentDetailsPage').classList.remove('active');
     }
 
     function changePageSize(type, size) {
@@ -972,6 +1155,8 @@
       currentPage[type] = 1;
       if (type === 'closed') {
         renderClosedAnalytics();
+      } else if (type === 'sentiment') {
+        renderSentimentTable();
       } else {
         renderTable(type);
       }
@@ -981,10 +1166,12 @@
       currentPage[type] = page;
       if (type === 'closed') {
         renderClosedAnalytics();
+      } else if (type === 'sentiment') {
+        renderSentimentTable();
       } else {
         renderTable(type);
       }
-      document.querySelector(`#${type}DetailsPage`).scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.querySelector(`#${type === 'sentiment' ? 'sentiment' : type}DetailsPage`).scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     function enrichProgressData() {
@@ -992,9 +1179,7 @@
       
       globalProgressEmails.forEach(email => {
         const threadId = email.threadId?.trim();
-        if (!threadMap.has(threadId)) {
-          threadMap.set(threadId, []);
-        }
+        if (!threadMap.has(threadId)) threadMap.set(threadId, []);
         threadMap.get(threadId).push(email);
       });
       
@@ -1029,8 +1214,6 @@
       } else if (type === 'progress') {
         data = enrichProgressData();
         displayColumns = ['threadId', 'messageCount', 'Owner', 'date', 'subject', 'latestMessage'];
-      } else if (type === 'closed') {
-        data = filteredClosedEmails;
       }
       
       const table = document.getElementById(tableId);
@@ -1050,9 +1233,7 @@
       const headers = displayColumns.length > 0 ? displayColumns : Object.keys(data[0]);
       
       let html = '<thead><tr>';
-      headers.forEach(header => {
-        html += `<th>${header}</th>`;
-      });
+      headers.forEach(header => html += `<th>${header}</th>`);
       html += '</tr></thead><tbody>';
 
       pageData.forEach(row => {
@@ -1094,9 +1275,7 @@
       
       if (current > 3) {
         html += `<button onclick="changePage('${type}', 1)">1</button>`;
-        if (current > 4) {
-          html += `<button disabled>...</button>`;
-        }
+        if (current > 4) html += `<button disabled>...</button>`;
       }
 
       for (let i = Math.max(1, current - 2); i <= Math.min(total, current + 2); i++) {
@@ -1104,9 +1283,7 @@
       }
 
       if (current < total - 2) {
-        if (current < total - 3) {
-          html += `<button disabled>...</button>`;
-        }
+        if (current < total - 3) html += `<button disabled>...</button>`;
         html += `<button onclick="changePage('${type}', ${total})">${total}</button>`;
       }
 
@@ -1125,6 +1302,8 @@
     document.getElementById('openBox').addEventListener('click', () => showDetailsPage('open'));
     document.getElementById('progressBox').addEventListener('click', () => showDetailsPage('progress'));
     document.getElementById('closedBox').addEventListener('click', () => showDetailsPage('closed'));
+    document.getElementById('positiveBox').addEventListener('click', () => showSentimentDetails('positive'));
+    document.getElementById('negativeBox').addEventListener('click', () => showSentimentDetails('negative'));
 
     // Initial load and auto-refresh every hour
     loadDashboard();
@@ -1132,4 +1311,3 @@
   </script>
 </body>
 </html>
-

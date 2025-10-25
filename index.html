@@ -493,6 +493,21 @@
     .table-container::-webkit-scrollbar-thumb:hover {
       background: #07a359;
     }
+
+    .sentiment-section {
+      background: white;
+      padding: 30px;
+      border-radius: 16px;
+      margin-bottom: 30px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .sentiment-section h3 {
+      color: #1f2937;
+      font-size: 1.5rem;
+      margin-bottom: 20px;
+      font-family: "Manrope", sans-serif;
+    }
   </style>
 </head>
 <body>
@@ -519,14 +534,6 @@
         <div class="counter-box closed" id="closedBox">
           <div class="count" id="closedCount">0</div>
           <div class="label">Closed Threads</div>
-        </div>
-        <div class="counter-box positive" id="positiveBox">
-          <div class="count" id="positiveCount">0</div>
-          <div class="label">Positive Sentiment</div>
-        </div>
-        <div class="counter-box negative" id="negativeBox">
-          <div class="count" id="negativeCount">0</div>
-          <div class="label">Negative Sentiment</div>
         </div>
       </div>
     </div>
@@ -604,16 +611,45 @@
       <div class="details-header">
         <div class="details-header-text">
           <h2>Closed Threads Analytics</h2>
-          <p>Historical view of resolved escalation threads</p>
+          <p>Escalations closed + Non-escalations resolved</p>
         </div>
       </div>
       
+      <!-- Sentiment Analytics Section -->
+      <div class="sentiment-section">
+        <h3>Sentiment Analysis</h3>
+        <div class="filters" style="margin-bottom: 20px;">
+          <label>Filter by Month (Email Date):</label>
+          <select id="sentimentMonthFilter" onchange="updateSentimentCounts()">
+            <option value="all">All Months</option>
+          </select>
+        </div>
+        <div class="stats-container" style="margin-bottom: 0;">
+          <div class="counter-box positive" id="positiveBoxClosed" style="cursor: pointer;">
+            <div class="count" id="positiveCountClosed">0</div>
+            <div class="label">Positive Sentiment</div>
+          </div>
+          <div class="counter-box negative" id="negativeBoxClosed" style="cursor: pointer;">
+            <div class="count" id="negativeCountClosed">0</div>
+            <div class="label">Negative Sentiment</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Escalation Analytics (Negative emails only) -->
+      <div class="details-header">
+        <div class="details-header-text">
+          <h2 style="font-size: 1.5rem;">Escalation Metrics (Negative Sentiment Only)</h2>
+          <p>Performance metrics for true escalations</p>
+        </div>
+      </div>
+
       <!-- Statistics Cards (Only 3) -->
       <div class="stats-cards" id="closedStats"></div>
       
-      <!-- Filters -->
+      <!-- Filters for Escalation Table -->
       <div class="filters">
-        <label>Filter by Month:</label>
+        <label>Filter by Month (Closed Date):</label>
         <select id="monthFilter" onchange="filterClosedData()">
           <option value="all">All Months</option>
         </select>
@@ -649,7 +685,7 @@
     <!-- Sentiment Details Pages -->
     <div id="sentimentDetailsPage" class="details-page">
       <div class="top-actions">
-        <button class="back-button" onclick="showMainPage()">← Back to Dashboard</button>
+        <button class="back-button" onclick="showClosedPage()">← Back to Closed Analytics</button>
       </div>
       <div class="details-header">
         <div class="details-header-text">
@@ -658,13 +694,8 @@
         </div>
       </div>
 
-      <!-- Sentiment Month Filter -->
+      <!-- Sentiment Table Filters -->
       <div class="filters">
-        <label>Filter by Month (Email Date):</label>
-        <select id="sentimentMonthFilter" onchange="filterSentimentData()">
-          <option value="all">All Months</option>
-        </select>
-        
         <label>Show:</label>
         <select id="sentimentPageSize" onchange="changePageSize('sentiment', this.value)">
           <option value="10">10</option>
@@ -757,15 +788,20 @@
         globalInternalData = internal;
         globalClosedData = closed;
     
-        // Separate sentiments - including "Not Applicable"
+        // Separate sentiments
         const negativeSentimentForm = form.filter(f => {
           const sentiment = (f.sentiment || f.Sentiment || f['Sentiment'] || '').toLowerCase().trim();
           return sentiment === 'negative';
         });
     
-        const dismissedSentimentForm = form.filter(f => {
+        const positiveSentimentForm = form.filter(f => {
           const sentiment = (f.sentiment || f.Sentiment || f['Sentiment'] || '').toLowerCase().trim();
-          return sentiment === 'positive' || sentiment === 'not applicable';
+          return sentiment === 'positive';
+        });
+
+        const notApplicableSentimentForm = form.filter(f => {
+          const sentiment = (f.sentiment || f.Sentiment || f['Sentiment'] || '').toLowerCase().trim();
+          return sentiment === 'not applicable';
         });
     
         // Build thread closure map
@@ -791,10 +827,16 @@
           if (threadId) threadInProgressSet.add(threadId);
         });
     
-        const threadDismissedSet = new Set();
-        dismissedSentimentForm.forEach(f => {
+        const threadPositiveSet = new Set();
+        positiveSentimentForm.forEach(f => {
           const threadId = f.threadId?.trim();
-          if (threadId) threadDismissedSet.add(threadId);
+          if (threadId) threadPositiveSet.add(threadId);
+        });
+
+        const threadNotApplicableSet = new Set();
+        notApplicableSentimentForm.forEach(f => {
+          const threadId = f.threadId?.trim();
+          if (threadId) threadNotApplicableSet.add(threadId);
         });
     
         // Categorize emails
@@ -812,7 +854,8 @@
           const threadClosureInfo = threadClosureMap.get(threadId);
           const threadClosureTime = threadClosureInfo?.time;
           const isThreadInProgress = threadInProgressSet.has(threadId);
-          const isThreadDismissed = threadDismissedSet.has(threadId);
+          const isThreadPositive = threadPositiveSet.has(threadId);
+          const isThreadNotApplicable = threadNotApplicableSet.has(threadId);
           const isEmailClosed = threadClosureTime && emailDate && emailDate < threadClosureTime;
     
           if (isEmailClosed) {
@@ -820,12 +863,14 @@
             closedEmailsMap.get(threadId).push(email);
           } else if (isThreadInProgress || (threadClosureTime && emailDate && emailDate >= threadClosureTime)) {
             globalProgressEmails.push(email);
-          } else if (!isThreadDismissed) {
+          } else if (!isThreadPositive && !isThreadNotApplicable) {
             globalOpenEmails.push(email);
           }
+          // Positive emails are dismissed from Open/In-Progress but counted in Closed
+          // Not Applicable emails are completely filtered out
         });
     
-        // Process closed threads with CSV_CLOSE data
+        // Process closed threads with CSV_CLOSE data (ONLY NEGATIVE sentiment)
         globalClosedThreads = Array.from(closedEmailsMap.entries()).map(([threadId, emails]) => {
           const threadClosureInfo = threadClosureMap.get(threadId);
           const closureEntry = threadClosureInfo?.data;
@@ -858,11 +903,12 @@
     
         filteredClosedEmails = [...globalClosedThreads];
     
+        const positiveSentimentThreads = [...new Set(positiveSentimentForm.map(f => f.threadId?.trim()))].length;
+
         document.getElementById('openCount').innerText = [...new Set(globalOpenEmails.map(e => e.threadId))].length;
         document.getElementById('progressCount').innerText = [...new Set(globalProgressEmails.map(e => e.threadId))].length;
-        document.getElementById('closedCount').innerText = globalClosedThreads.length;
-        document.getElementById('positiveCount').innerText = dismissedSentimentForm.length;
-        document.getElementById('negativeCount').innerText = negativeSentimentForm.length;
+        // Closed = Escalations (negative) + Positive sentiment
+        document.getElementById('closedCount').innerText = globalClosedThreads.length + positiveSentimentThreads;
     
         document.getElementById('loading').style.display = 'none';
         document.getElementById('stats').style.display = 'flex';
@@ -878,7 +924,7 @@
     }
 
     function populateFilters() {
-      // Month filter
+      // Month filter (for closed date)
       const months = [...new Set(globalClosedThreads.map(e => e.month))].filter(m => m !== 'N/A').sort();
       const monthFilter = document.getElementById('monthFilter');
       monthFilter.innerHTML = '<option value="all">All Months</option>';
@@ -898,7 +944,12 @@
     }
 
     function populateSentimentMonthFilter() {
+      // Get all email dates from form data
       const allDates = globalFormData
+        .filter(f => {
+          const sentiment = (f.sentiment || f.Sentiment || f['Sentiment'] || '').toLowerCase().trim();
+          return sentiment === 'positive' || sentiment === 'negative';
+        })
         .map(f => {
           const threadId = f.threadId?.trim();
           const email = globalInternalData.find(e => e.threadId?.trim() === threadId);
@@ -911,6 +962,29 @@
       const monthFilter = document.getElementById('sentimentMonthFilter');
       monthFilter.innerHTML = '<option value="all">All Months</option>';
       months.forEach(m => monthFilter.innerHTML += `<option value="${m}">${m}</option>`);
+    }
+
+    function updateSentimentCounts() {
+      const monthFilter = document.getElementById('sentimentMonthFilter').value;
+      
+      const filterBySentimentAndMonth = (sentiment) => {
+        return globalFormData.filter(f => {
+          const fSentiment = (f.sentiment || f.Sentiment || f['Sentiment'] || '').toLowerCase().trim();
+          if (fSentiment !== sentiment) return false;
+          
+          if (monthFilter === 'all') return true;
+          
+          const threadId = f.threadId?.trim();
+          const email = globalInternalData.find(e => e.threadId?.trim() === threadId);
+          const emailMonth = email?.date ? 
+            new Date(email.date).toLocaleString('default', { month: 'long', year: 'numeric' }) : '';
+          
+          return emailMonth === monthFilter;
+        }).length;
+      };
+
+      document.getElementById('positiveCountClosed').innerText = filterBySentimentAndMonth('positive');
+      document.getElementById('negativeCountClosed').innerText = filterBySentimentAndMonth('negative');
     }
 
     function filterClosedData() {
@@ -929,20 +1003,6 @@
       renderClosedAnalytics();
     }
 
-    function filterSentimentData() {
-      const monthFilter = document.getElementById('sentimentMonthFilter').value;
-      
-      filteredSentimentData = filteredSentimentData.filter(e => {
-        if (monthFilter === 'all') return true;
-        const emailMonth = e.emailDate ? 
-          new Date(e.emailDate).toLocaleString('default', { month: 'long', year: 'numeric' }) : '';
-        return emailMonth === monthFilter;
-      });
-
-      currentPage.sentiment = 1;
-      renderSentimentTable();
-    }
-
     function renderClosedAnalytics() {
       const totalClosed = filteredClosedEmails.length;
       
@@ -958,9 +1018,9 @@
       
       const statsHtml = `
         <div class="stat-card">
-          <h3>Total Closed</h3>
+          <h3>Total Escalations Closed</h3>
           <div class="value">${totalClosed}</div>
-          <div class="subtext">Threads resolved</div>
+          <div class="subtext">Negative sentiment threads</div>
         </div>
         <div class="stat-card">
           <h3>This Month</h3>
@@ -1055,7 +1115,7 @@
     }
 
     function showSentimentDetails(type) {
-      document.getElementById('mainPage').style.display = 'none';
+      document.getElementById('closedDetailsPage').classList.remove('active');
       document.getElementById('sentimentDetailsPage').classList.add('active');
       currentSentimentType = type;
       
@@ -1064,12 +1124,20 @@
       document.getElementById('sentimentSubtitle').innerText = 
         `Detailed view of ${type} sentiment emails`;
 
+      const monthFilter = document.getElementById('sentimentMonthFilter').value;
+
       const sentimentData = globalFormData.filter(f => {
         const sentiment = (f.sentiment || f.Sentiment || f['Sentiment'] || '').toLowerCase().trim();
-        if (type === 'positive') {
-          return sentiment === 'positive' || sentiment === 'not applicable';
-        }
-        return sentiment === 'negative';
+        if (sentiment !== type) return false;
+
+        if (monthFilter === 'all') return true;
+
+        const threadId = f.threadId?.trim();
+        const email = globalInternalData.find(e => e.threadId?.trim() === threadId);
+        const emailMonth = email?.date ? 
+          new Date(email.date).toLocaleString('default', { month: 'long', year: 'numeric' }) : '';
+        
+        return emailMonth === monthFilter;
       });
 
       filteredSentimentData = sentimentData.map(formEntry => {
@@ -1138,8 +1206,14 @@
         renderTable('progress');
       } else if (type === 'closed') {
         document.getElementById('closedDetailsPage').classList.add('active');
+        updateSentimentCounts();
         renderClosedAnalytics();
       }
+    }
+
+    function showClosedPage() {
+      document.getElementById('sentimentDetailsPage').classList.remove('active');
+      document.getElementById('closedDetailsPage').classList.add('active');
     }
 
     function showMainPage() {
@@ -1171,7 +1245,8 @@
       } else {
         renderTable(type);
       }
-      document.querySelector(`#${type === 'sentiment' ? 'sentiment' : type}DetailsPage`).scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const pageSelector = type === 'sentiment' ? 'sentimentDetailsPage' : `${type}DetailsPage`;
+      document.getElementById(pageSelector).scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     function enrichProgressData() {
@@ -1302,8 +1377,17 @@
     document.getElementById('openBox').addEventListener('click', () => showDetailsPage('open'));
     document.getElementById('progressBox').addEventListener('click', () => showDetailsPage('progress'));
     document.getElementById('closedBox').addEventListener('click', () => showDetailsPage('closed'));
-    document.getElementById('positiveBox').addEventListener('click', () => showSentimentDetails('positive'));
-    document.getElementById('negativeBox').addEventListener('click', () => showSentimentDetails('negative'));
+
+    // Wait for DOM to be ready for sentiment boxes
+    document.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => {
+        const positiveBox = document.getElementById('positiveBoxClosed');
+        const negativeBox = document.getElementById('negativeBoxClosed');
+        
+        if (positiveBox) positiveBox.addEventListener('click', () => showSentimentDetails('positive'));
+        if (negativeBox) negativeBox.addEventListener('click', () => showSentimentDetails('negative'));
+      }, 100);
+    });
 
     // Initial load and auto-refresh every hour
     loadDashboard();

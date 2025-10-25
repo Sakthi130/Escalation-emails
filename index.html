@@ -760,9 +760,27 @@
       const start = new Date(startDate);
       const end = new Date(endDate);
       const diffTime = Math.abs(end - start);
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays;
+      
+      const hours = Math.floor(diffTime / (1000 * 60 * 60));
+      const minutes = Math.floor((diffTime % (1000 * 60 * 60)) / (1000 * 60));
+      
+      return { hours, minutes, totalMinutes: Math.floor(diffTime / (1000 * 60)) };
     }
+    
+    function formatAgeing(ageingObj) {
+      if (!ageingObj || typeof ageingObj !== 'object') return 'N/A';
+      
+      const { hours, minutes } = ageingObj;
+      
+      if (hours >= 24) {
+        const days = Math.floor(hours / 24);
+        const remainingHours = hours % 24;
+        return `${days}d ${remainingHours}h ${minutes}m`;
+      }
+      
+      return `${hours}h ${minutes}m`;
+    }
+
 
     function extractNameFromEmail(email) {
       if (!email || typeof email !== 'string') return '';
@@ -895,11 +913,12 @@
             lossIncurred: closureEntry?.['Loss Incurred'] || '',
             actionOwner: closureEntry?.['Action Owner & Timeline'] || '',
             ageing: closureEntry?.Timestamp && firstEmail?.date ? 
-              calculateAgeing(firstEmail.date, closureEntry.Timestamp) : 'N/A',
+              calculateAgeing(firstEmail.date, closureEntry.Timestamp) : null,
+            ageingFormatted: closureEntry?.Timestamp && firstEmail?.date ? 
+              formatAgeing(calculateAgeing(firstEmail.date, closureEntry.Timestamp)) : 'N/A',
             month: closureEntry?.Timestamp ? 
               new Date(closureEntry.Timestamp).toLocaleString('default', { month: 'long', year: 'numeric' }) : 'N/A'
           };
-        });
     
         filteredClosedEmails = [...globalClosedThreads];
     
@@ -1006,12 +1025,29 @@
     function renderClosedAnalytics() {
       const totalClosed = filteredClosedEmails.length;
       
+      // Calculate average in total minutes
       const validAgeings = filteredClosedEmails
-        .map(e => typeof e.ageing === 'number' ? e.ageing : null)
+        .map(e => (e.ageing && e.ageing.totalMinutes) ? e.ageing.totalMinutes : null)
         .filter(a => a !== null);
-      const avgAgeing = validAgeings.length > 0 
+      
+      const avgAgeingMinutes = validAgeings.length > 0 
         ? validAgeings.reduce((sum, age) => sum + age, 0) / validAgeings.length 
         : 0;
+      
+      // Convert average minutes to hours and minutes
+      const avgHours = Math.floor(avgAgeingMinutes / 60);
+      const avgMinutes = Math.floor(avgAgeingMinutes % 60);
+      
+      let avgAgeingFormatted = 'N/A';
+      if (avgHours >= 24) {
+        const days = Math.floor(avgHours / 24);
+        const remainingHours = avgHours % 24;
+        avgAgeingFormatted = `${days}d ${remainingHours}h ${avgMinutes}m`;
+      } else if (avgHours > 0) {
+        avgAgeingFormatted = `${avgHours}h ${avgMinutes}m`;
+      } else {
+        avgAgeingFormatted = `${avgMinutes}m`;
+      }
       
       const thisMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
       const thisMonthCount = filteredClosedEmails.filter(e => e.month === thisMonth).length;
@@ -1029,10 +1065,11 @@
         </div>
         <div class="stat-card">
           <h3>Avg Resolution Time</h3>
-          <div class="value">${avgAgeing.toFixed(1)}</div>
-          <div class="subtext">days to close</div>
+          <div class="value">${avgAgeingFormatted}</div>
+          <div class="subtext">average time to close</div>
         </div>
       `;
+
       document.getElementById('closedStats').innerHTML = statsHtml;
       
       renderEnhancedClosedTable();
@@ -1280,6 +1317,33 @@
       });
     }
 
+    function enrichOpenData() {
+      const threadMap = new Map();
+      
+      globalOpenEmails.forEach(email => {
+        const threadId = email.threadId?.trim();
+        if (!threadMap.has(threadId)) threadMap.set(threadId, []);
+        threadMap.get(threadId).push(email);
+      });
+      
+      return Array.from(threadMap.entries()).map(([threadId, emails]) => {
+        const sortedEmails = emails.sort((a, b) => new Date(a.date) - new Date(b.date));
+        const firstEmail = sortedEmails[0];
+        const latestEmail = sortedEmails[sortedEmails.length - 1];
+        
+        return {
+          threadId: threadId,
+          messageCount: emails.length,
+          from: firstEmail?.from || '',
+          subject: firstEmail?.subject || '',
+          date: latestEmail?.date || '',  // Latest email date
+          body: latestEmail?.body || '',  // Latest email body
+          'AI - sentiment': latestEmail?.['AI - sentiment'] || ''  // Latest email sentiment
+        };
+      });
+    }
+
+
     function renderTable(type) {
       const tableId = type + 'Table';
       const paginationId = type + 'Pagination';
@@ -1287,8 +1351,8 @@
       let displayColumns = [];
       
       if (type === 'open') {
-        data = globalOpenEmails;
-        displayColumns = ['from', 'threadId', 'subject', 'date', 'body', 'AI - sentiment'];
+        data = enrichOpenData();
+        displayColumns = ['threadId', 'messageCount', 'from', 'subject', 'date', 'body', 'AI - sentiment'];
       } else if (type === 'progress') {
         data = enrichProgressData();
         displayColumns = ['threadId', 'messageCount', 'Owner', 'date', 'subject', 'latestMessage','Comments'];
@@ -1398,4 +1462,5 @@
   </script>
 </body>
 </html>
+
 

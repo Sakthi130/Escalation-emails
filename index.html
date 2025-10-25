@@ -919,6 +919,7 @@
             month: closureEntry?.Timestamp ? 
               new Date(closureEntry.Timestamp).toLocaleString('default', { month: 'long', year: 'numeric' }) : 'N/A'
           };
+          });
     
         filteredClosedEmails = [...globalClosedThreads];
     
@@ -1462,5 +1463,6 @@
   </script>
 </body>
 </html>
+
 
 
